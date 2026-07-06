@@ -1,0 +1,48 @@
+## .NET / WinUI
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.userprefs
+*.useros
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+## NuGet
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nupkg
+**/[Pp]ackages/repositories.config
+
+## Windows App SDK
+*.msix
+*.msixbundle
+*.appxbundle
+*.appx
+AppPackages/
+BundleArtifacts/
+
+## Visual Studio
+*.suo
+*.sln.docstates
+*.user
+*.rsuser
+*.[Cc]ache
+*.ncb
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+*.pubxml.user
+azds.yaml
+node_modules/
+
+## Rider
+.idea/
+*.sln.iml
+
+## VS Code
+.vscode/

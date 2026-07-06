@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="WinUIApp.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinUIApp"
+    xmlns:views="using:WinUIApp.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="系统监测">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <NavigationView x:Name="MainNavigationView"
+                    PaneDisplayMode="LeftCompact"
+                    IsBackEnabled="False"
+                    IsSettingsVisible="False"
+                    SelectionChanged="OnNavigationSelectionChanged">
+
+        <NavigationView.MenuItems>
+            <NavigationViewItem x:Name="NavOverview" Content="总览" Tag="overview">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE80F;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavCpu" Content="CPU" Tag="cpu">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE950;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavMemory" Content="内存" Tag="memory">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE9D2;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavDisk" Content="磁盘" Tag="disk">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xEDA2;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavNetwork" Content="网络" Tag="network">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE774;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavSystemInfo" Content="系统信息" Tag="system">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE946;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <Frame x:Name="ContentFrame" Padding="0" />
+
+    </NavigationView>
+</Window>

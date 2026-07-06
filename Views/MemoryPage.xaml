@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="WinUIApp.Views.MemoryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinUIApp.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="24" Spacing="16">
+
+            <TextBlock Text="内存详细监测" Style="{StaticResource TitleTextBlockStyle}" />
+
+            <!-- 内存使用率环 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
+                    CornerRadius="8" Padding="16"
+                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="物理内存使用率" Style="{StaticResource BodyStrongTextBlockStyle}"
+                               HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <controls:ArcGauge
+                        Height="220" Width="220"
+                        Percent="{Binding Memory.UsagePercent}"
+                        Title="内存"
+                        Subtitle="{Binding Memory.UsageText}"
+                        GaugeColor="#FF107C10"
+                        StrokeWidth="24" />
+                </StackPanel>
+            </Border>
+
+            <!-- 内存统计详情 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
+                    CornerRadius="8" Padding="16"
+                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="内存统计" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
+
+                    <!-- 总量 -->
+                    <Grid Margin="0,4" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="总内存" FontSize="12" VerticalAlignment="Center" />
+                        <ProgressBar Grid.Column="1" Value="100" Maximum="100"
+                                     VerticalAlignment="Center" Foreground="#FF0078D4" />
+                        <TextBlock Grid.Column="2" Text="{Binding Memory.TotalText}" FontSize="11"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 已用 -->
+                    <Grid Margin="0,4" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="已用" FontSize="12" VerticalAlignment="Center" />
+                        <ProgressBar Grid.Column="1"
+                                     Value="{Binding Memory.UsagePercent}" Maximum="100"
+                                     VerticalAlignment="Center" Foreground="#FFD83B01" />
+                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
+                            <Run Text="{Binding Memory.UsedGB}" />
+                            <Run Text=" GB" />
+                        </TextBlock>
+                    </Grid>
+
+                    <!-- 可用 -->
+                    <Grid Margin="0,4" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="可用" FontSize="12" VerticalAlignment="Center" />
+                        <ProgressBar Grid.Column="1"
+                                     Value="{Binding Memory.AvailableGB}"
+                                     Maximum="{Binding Memory.TotalGB}"
+                                     VerticalAlignment="Center" Foreground="#FF107C10" />
+                        <TextBlock Grid.Column="2" Text="{Binding Memory.AvailableText}" FontSize="11"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 已提交 -->
+                    <Grid Margin="0,4" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="已提交" FontSize="12" VerticalAlignment="Center" />
+                        <ProgressBar Grid.Column="1"
+                                     Value="{Binding Memory.CommittedGB}"
+                                     Maximum="{Binding Memory.TotalGB}"
+                                     VerticalAlignment="Center" Foreground="#FFFFB900" />
+                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
+                            <Run Text="{Binding Memory.CommittedGB}" />
+                            <Run Text=" GB" />
+                        </TextBlock>
+                    </Grid>
+
+                    <!-- 缓存 -->
+                    <Grid Margin="0,4" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="缓存" FontSize="12" VerticalAlignment="Center" />
+                        <ProgressBar Grid.Column="1"
+                                     Value="{Binding Memory.CachedGB}"
+                                     Maximum="{Binding Memory.TotalGB}"
+                                     VerticalAlignment="Center" Foreground="#FF6B69D6" />
+                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
+                            <Run Text="{Binding Memory.CachedGB}" />
+                            <Run Text=" GB" />
+                        </TextBlock>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 内存池 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
+                    CornerRadius="8" Padding="16"
+                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="内存池" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
+                    <Grid ColumnSpacing="24" RowSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="分页池:" Grid.Row="0" Grid.Column="0"
+                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" FontSize="12">
+                            <Run Text="{Binding Memory.PagedPoolGB}" />
+                            <Run Text=" GB" />
+                        </TextBlock>
+
+                        <TextBlock Text="非分页池:" Grid.Row="0" Grid.Column="2"
+                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                        <TextBlock Grid.Row="0" Grid.Column="3" FontSize="12">
+                            <Run Text="{Binding Memory.NonPagedPoolGB}" />
+                            <Run Text=" GB" />
+                        </TextBlock>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
