@@ -87,9 +87,11 @@ public class MemoryViewModel : BaseViewModel
         set => SetProperty(ref _availableText, value);
     }
 
-    public void Refresh()
+    public MemoryInfo Capture() => _service.GetMemoryInfo();
+
+    // All notifications occur on the UI thread.
+    public void Apply(MemoryInfo info)
     {
-        var info = _service.GetMemoryInfo();
 
         TotalGB = info.TotalGB;
         UsedGB = info.UsedGB;

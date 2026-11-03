@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Collections.Generic;
+using WinUIApp.Models;
 using WinUIApp.Services;
 
 namespace WinUIApp.ViewModels;
@@ -13,9 +15,10 @@ public class NetworkViewModel : BaseViewModel
 
     public ObservableCollection<NetworkItemViewModel> Adapters { get; } = new();
 
-    public void Refresh()
+    public List<NetworkInfo> Capture() => _service.GetNetworkInfos();
+
+    public void Apply(IReadOnlyList<NetworkInfo> networks)
     {
-        var networks = _service.GetNetworkInfos();
         var activeAdapters = networks.Where(n => n.IsActive || !string.IsNullOrEmpty(n.Description)).ToList();
 
         foreach (var net in activeAdapters)

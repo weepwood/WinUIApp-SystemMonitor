@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Collections.Generic;
+using WinUIApp.Models;
 using WinUIApp.Services;
 
 namespace WinUIApp.ViewModels;
@@ -13,9 +15,10 @@ public class DiskViewModel : BaseViewModel
 
     public ObservableCollection<DiskItemViewModel> Drives { get; } = new();
 
-    public void Refresh()
+    public List<DiskInfo> Capture() => _service.GetDiskInfos();
+
+    public void Apply(IReadOnlyList<DiskInfo> disks)
     {
-        var disks = _service.GetDiskInfos();
 
         foreach (var disk in disks)
         {
