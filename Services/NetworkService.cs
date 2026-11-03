@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -9,160 +9,78 @@ using WinUIApp.Models;
 namespace WinUIApp.Services;
 
 /// <summary>
-/// 网络适配器信息和流量采集服务
+/// Reads cumulative byte counters via the managed network API. No WMI round-trip.
+/// Rates are decimal megabits per second (1 Mbps = 1,000,000 bits/s).
 /// </summary>
-public class NetworkService
+public sealed class NetworkService
 {
-    private readonly ConcurrentDictionary<string, (long received, long sent, DateTime time)> _previousStats = new();
+    private readonly Dictionary<string, (long received, long sent, long timestamp)> _previousStats = new();
 
     public List<NetworkInfo> GetNetworkInfos()
     {
         var networks = new List<NetworkInfo>();
-        var now = DateTime.UtcNow;
+        var now = Stopwatch.GetTimestamp();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        try
+        NetworkInterface[] adapters;
+        try { adapters = NetworkInterface.GetAllNetworkInterfaces(); }
+        catch (NetworkInformationException) { return networks; }
+
+        foreach (var nic in adapters)
         {
-            var results = HardwareInfoService.ExecuteQuery(
-                "SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface");
-
-            foreach (var obj in results)
+            try
             {
-                string name = HardwareInfoService.GetStringProperty(obj, "Name");
-                long bytesReceived = (long)(HardwareInfoService.GetPropertyValue<ulong>(obj, "BytesReceivedPerSec") ?? 0);
-                long bytesSent = (long)(HardwareInfoService.GetPropertyValue<ulong>(obj, "BytesSentPerSec") ?? 0);
-                long totalReceived = (long)(HardwareInfoService.GetPropertyValue<ulong>(obj, "BytesTotalPersec") ?? 0);
-
-                var netInfo = new NetworkInfo
+                var info = new NetworkInfo
                 {
-                    AdapterName = name,
-                    Description = HardwareInfoService.GetStringProperty(obj, "Description"),
-                    BytesReceived = bytesReceived,
-                    BytesSent = bytesSent,
-                    IsActive = bytesReceived > 0 || bytesSent > 0,
-                };
-
-                // 用原始计数器计算速率
-                try
-                {
-                    ulong rawReceived = HardwareInfoService.GetPropertyValue<ulong>(obj, "BytesReceivedPersec") ?? 0;
-                    ulong rawSent = HardwareInfoService.GetPropertyValue<ulong>(obj, "BytesSentPersec") ?? 0;
-
-                    if (_previousStats.TryGetValue(name, out var prev))
-                    {
-                        double elapsedSec = (now - prev.time).TotalSeconds;
-                        if (elapsedSec > 0)
-                        {
-                            long deltaReceived = Math.Max(0, (long)rawReceived - prev.received);
-                            long deltaSent = Math.Max(0, (long)rawSent - prev.sent);
-
-                            netInfo.DownloadSpeedMbps = HardwareInfoService.BytesToMB(deltaReceived) * 8 / elapsedSec;
-                            netInfo.UploadSpeedMbps = HardwareInfoService.BytesToMB(deltaSent) * 8 / elapsedSec;
-                        }
-                    }
-                    _previousStats[name] = ((long)rawReceived, (long)rawSent, now);
-                }
-                catch (Exception) { }
-
-                networks.Add(netInfo);
-            }
-        }
-        catch (Exception) { }
-
-        // 如果 WMI 获取不到网络接口，使用 System.Net.NetworkInformation
-        if (networks.Count == 0)
-        {
-            networks = GetNetworkInfoFromApi();
-        }
-        else
-        {
-            // 从 System.Net.NetworkInformation 获取附加信息（IP、MAC、状态等）
-            EnrichNetworkInfo(networks);
-        }
-
-        return networks;
-    }
-
-    private static List<NetworkInfo> GetNetworkInfoFromApi()
-    {
-        var networks = new List<NetworkInfo>();
-
-        try
-        {
-            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                var stats = nic.GetIPStatistics();
-                var ipProps = nic.GetIPProperties();
-
-                var netInfo = new NetworkInfo
-                {
-                    AdapterName = nic.Name,
-                    Description = nic.Description,
+                    AdapterName = nic.Id,
+                    Description = string.IsNullOrWhiteSpace(nic.Description) ? nic.Name : nic.Description,
                     Status = nic.OperationalStatus.ToString(),
-                    IsActive = nic.OperationalStatus == OperationalStatus.Up,
+                    IsActive = nic.OperationalStatus == OperationalStatus.Up
                 };
+                seen.Add(nic.Id);
 
-                foreach (var ip in ipProps.UnicastAddresses)
+                var props = nic.GetIPProperties();
+                foreach (var address in props.UnicastAddresses)
                 {
-                    if (ip.Address.AddressFamily == AddressFamily.InterNetwork ||
-                        ip.Address.AddressFamily == AddressFamily.InterNetworkV6)
-                    {
-                        netInfo.IpAddresses.Add(ip.Address.ToString());
-                    }
+                    if (address.Address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
+                        info.IpAddresses.Add(address.Address.ToString());
                 }
 
-                var mac = nic.GetPhysicalAddress();
-                if (mac != null)
+                byte[] mac = nic.GetPhysicalAddress().GetAddressBytes();
+                info.MacAddress = string.Join(":", mac.Select(b => b.ToString("X2")));
+
+                var stats = nic.GetIPv4Statistics();
+                info.BytesReceived = stats.BytesReceived;
+                info.BytesSent = stats.BytesSent;
+
+                if (_previousStats.TryGetValue(nic.Id, out var previous))
                 {
-                    netInfo.MacAddress = string.Join(":", mac.GetAddressBytes().Select(b => b.ToString("X2")));
-                }
-
-                networks.Add(netInfo);
-            }
-        }
-        catch (Exception) { }
-
-        return networks;
-    }
-
-    private static void EnrichNetworkInfo(List<NetworkInfo> networks)
-    {
-        try
-        {
-            var nics = NetworkInterface.GetAllNetworkInterfaces();
-            foreach (var nic in nics)
-            {
-                var match = networks.FirstOrDefault(n =>
-                    n.Description.Contains(nic.Name, StringComparison.OrdinalIgnoreCase) ||
-                    n.AdapterName.Contains(nic.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (match == null)
-                    match = networks.FirstOrDefault(n =>
-                        n.Description.Contains(nic.Description, StringComparison.OrdinalIgnoreCase));
-
-                if (match != null)
-                {
-                    match.Status = nic.OperationalStatus.ToString();
-                    match.IsActive = match.IsActive || nic.OperationalStatus == OperationalStatus.Up;
-
-                    var ipProps = nic.GetIPProperties();
-                    foreach (var ip in ipProps.UnicastAddresses)
+                    double elapsed = (now - previous.timestamp) / (double)Stopwatch.Frequency;
+                    if (elapsed > 0.001)
                     {
-                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork ||
-                            ip.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        long receivedDelta = info.BytesReceived - previous.received;
+                        long sentDelta = info.BytesSent - previous.sent;
+                        // Counter reset / device replacement must not produce a large spike.
+                        if (receivedDelta >= 0 && sentDelta >= 0)
                         {
-                            if (!match.IpAddresses.Contains(ip.Address.ToString()))
-                                match.IpAddresses.Add(ip.Address.ToString());
+                            info.DownloadSpeedMbps = Math.Round(receivedDelta * 8.0 / 1_000_000.0 / elapsed, 2);
+                            info.UploadSpeedMbps = Math.Round(sentDelta * 8.0 / 1_000_000.0 / elapsed, 2);
                         }
                     }
-
-                    var mac = nic.GetPhysicalAddress();
-                    if (mac != null && string.IsNullOrEmpty(match.MacAddress))
-                    {
-                        match.MacAddress = string.Join(":", mac.GetAddressBytes().Select(b => b.ToString("X2")));
-                    }
                 }
+
+                _previousStats[nic.Id] = (info.BytesReceived, info.BytesSent, now);
+                networks.Add(info);
+            }
+            catch (Exception)
+            {
+                // An interface may disappear while it is being enumerated.
             }
         }
-        catch (Exception) { }
+
+        foreach (string id in _previousStats.Keys.Where(id => !seen.Contains(id)).ToArray())
+            _previousStats.Remove(id);
+
+        return networks;
     }
 }

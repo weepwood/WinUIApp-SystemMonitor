@@ -7,110 +7,76 @@ using WinUIApp.Models;
 namespace WinUIApp.Services;
 
 /// <summary>
-/// 磁盘信息采集服务（使用 DriveInfo + WMI）
+/// Drive capacities from DriveInfo and instantaneous logical disk throughput from WMI.
+/// Formatted counter values are already bytes/second; never divide by elapsed time.
 /// </summary>
-public class DiskService
+public sealed class DiskService
 {
-    private readonly Dictionary<string, (long readBytes, long writeBytes, DateTime time)> _previousStats = new();
-
     public List<DiskInfo> GetDiskInfos()
     {
         var disks = new List<DiskInfo>();
-        var drives = DriveInfo.GetDrives();
-
-        foreach (var drive in drives)
+        foreach (var drive in DriveInfo.GetDrives())
         {
-            var disk = new DiskInfo
+            var disk = new DiskInfo { DriveName = drive.Name };
+            try
             {
-                DriveName = drive.Name,
-                IsReady = drive.IsReady,
-            };
-
-            if (drive.IsReady)
-            {
-                disk.VolumeLabel = drive.VolumeLabel;
-                disk.DriveFormat = drive.DriveFormat;
-                disk.TotalSizeGB = HardwareInfoService.BytesToGB((ulong)drive.TotalSize);
-                disk.FreeSpaceGB = HardwareInfoService.BytesToGB((ulong)drive.TotalFreeSpace);
-                disk.UsedSpaceGB = disk.TotalSizeGB - disk.FreeSpaceGB;
-                disk.UsagePercent = disk.TotalSizeGB > 0
-                    ? (float)Math.Round(disk.UsedSpaceGB / disk.TotalSizeGB * 100, 1)
-                    : 0;
+                disk.IsReady = drive.IsReady;
+                if (disk.IsReady)
+                {
+                    disk.VolumeLabel = drive.VolumeLabel;
+                    disk.DriveFormat = drive.DriveFormat;
+                    disk.TotalSizeGB = HardwareInfoService.BytesToGB((ulong)drive.TotalSize);
+                    disk.FreeSpaceGB = HardwareInfoService.BytesToGB((ulong)drive.TotalFreeSpace);
+                    disk.UsedSpaceGB = Math.Max(0, disk.TotalSizeGB - disk.FreeSpaceGB);
+                    disk.UsagePercent = disk.TotalSizeGB > 0
+                        ? (float)Math.Clamp(Math.Round(disk.UsedSpaceGB / disk.TotalSizeGB * 100, 1), 0, 100)
+                        : 0;
+                }
                 disk.DriveType = drive.DriveType switch
                 {
-                    System.IO.DriveType.Fixed => "本地磁盘",
-                    System.IO.DriveType.Removable => "可移动磁盘",
-                    System.IO.DriveType.Network => "网络驱动器",
-                    System.IO.DriveType.CDRom => "光驱",
-                    System.IO.DriveType.Ram => "RAM 磁盘",
+                    DriveType.Fixed => "本地磁盘",
+                    DriveType.Removable => "可移动磁盘",
+                    DriveType.Network => "网络驱动器",
+                    DriveType.CDRom => "光驱",
+                    DriveType.Ram => "RAM 磁盘",
                     _ => "未知"
                 };
             }
-
+            catch (Exception)
+            {
+                disk.IsReady = false;
+            }
             disks.Add(disk);
         }
 
-        // 更新读写速率
         UpdateDiskSpeeds(disks);
-
         return disks;
     }
 
-    private void UpdateDiskSpeeds(List<DiskInfo> disks)
+    private static void UpdateDiskSpeeds(List<DiskInfo> disks)
     {
         try
         {
-            var results = HardwareInfoService.ExecuteQuery(
-                "SELECT * FROM Win32_PerfFormattedData_PerfDisk_LogicalDisk WHERE Name LIKE '_Total'");
-
-            // 如果没有 _Total，尝试获取每个磁盘的
-            if (results.Count == 0)
+            var counters = HardwareInfoService.ExecuteQuery(
+                "SELECT Name, DiskReadBytesPerSec, DiskWriteBytesPerSec FROM Win32_PerfFormattedData_PerfDisk_LogicalDisk WHERE Name <> '_Total'");
+            foreach (var counter in counters)
             {
-                results = HardwareInfoService.ExecuteQuery(
-                    "SELECT * FROM Win32_PerfFormattedData_PerfDisk_LogicalDisk");
-            }
+                string name = HardwareInfoService.GetStringProperty(counter, "Name");
+                var disk = disks.FirstOrDefault(d => d.IsReady &&
+                    string.Equals(d.DriveName.TrimEnd('\\'), name, StringComparison.OrdinalIgnoreCase));
+                if (disk == null) continue;
 
-            var now = DateTime.UtcNow;
-
-            foreach (var obj in results)
-            {
-                string name = HardwareInfoService.GetStringProperty(obj, "Name");
-                long readBytes = (long)(HardwareInfoService.GetPropertyValue<ulong>(obj, "DiskReadBytesPerSec") ?? 0);
-                long writeBytes = (long)(HardwareInfoService.GetPropertyValue<ulong>(obj, "DiskWriteBytesPerSec") ?? 0);
-
-                if (_previousStats.TryGetValue(name, out var prev))
-                {
-                    double elapsedSec = (now - prev.time).TotalSeconds;
-                    if (elapsedSec > 0)
-                    {
-                        double readSpeed = HardwareInfoService.BytesToMB(readBytes) / elapsedSec;
-                        double writeSpeed = HardwareInfoService.BytesToMB(writeBytes) / elapsedSec;
-
-                        var disk = disks.FirstOrDefault(d => d.DriveName.TrimEnd('\\') == name.TrimEnd('_'));
-                        if (disk != null || name == "_Total")
-                        {
-                            if (name == "_Total" && disks.Count > 0)
-                            {
-                                // 将总速度分配给第一个有数据的盘
-                                var firstReady = disks.FirstOrDefault(d => d.IsReady);
-                                if (firstReady != null)
-                                {
-                                    firstReady.ReadSpeedMBps = Math.Abs(readSpeed);
-                                    firstReady.WriteSpeedMBps = Math.Abs(writeSpeed);
-                                }
-                            }
-                            else if (disk != null)
-                            {
-                                disk.ReadSpeedMBps = Math.Abs(readSpeed);
-                                disk.WriteSpeedMBps = Math.Abs(writeSpeed);
-                            }
-                        }
-                    }
-                }
-
-                _previousStats[name] = (readBytes, writeBytes, now);
+                ulong readBytesPerSecond = HardwareInfoService.GetPropertyValue<ulong>(
+                    counter, "DiskReadBytesPerSec") ?? 0;
+                ulong writeBytesPerSecond = HardwareInfoService.GetPropertyValue<ulong>(
+                    counter, "DiskWriteBytesPerSec") ?? 0;
+                disk.ReadSpeedMBps = Math.Round(readBytesPerSecond / 1_048_576.0, 2);
+                disk.WriteSpeedMBps = Math.Round(writeBytesPerSecond / 1_048_576.0, 2);
             }
         }
-        catch (Exception) { }
+        catch (Exception)
+        {
+            // Hardware counters can be unavailable or disabled. Capacity remains usable.
+        }
     }
 }
