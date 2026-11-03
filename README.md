@@ -1,0 +1,50 @@
+# System Monitor · WinUI 3
+
+基于 **WinUI 3 + .NET 8** 的 Windows 本地系统监控工具，采用 Mica 背景与 Fluent 风格界面。
+
+## 功能
+
+- **总览**：CPU、内存仪表盘，磁盘占用、网络速率、系统概况。
+- **CPU**：处理器型号、使用率、逻辑核心占用与最近 60 个采样点的曲线。
+- **内存**：物理内存、缓存、已提交内存和内存池指标。
+- **磁盘**：逻辑驱动器容量、已用比例以及可用时的读写速率。
+- **网络**：网卡状态、IP 地址与实时上传/下载速率。
+- **系统信息**：系统版本、BIOS、主板、运行时间和进程/线程/句柄总数。
+- **刷新控制**：1 / 2 / 5 秒刷新、暂停与恢复，以及最近更新时间。
+
+## 开发与构建
+
+系统要求：Windows 10 1809 及以上，Visual Studio 2022（安装 Windows 应用开发相关工作负载）、.NET 8 SDK。项目默认平台为 x64。
+
+```powershell
+dotnet restore WinUIApp.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet build WinUIApp.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+```
+
+从 `WinUIApp.slnx` 也可以在 Visual Studio 中打开、编译并运行。CI 使用 GitHub Actions Windows runner 检查 x64 Debug 构建。
+
+## 采集与资源使用
+
+- CPU、内存、网络每次监测刷新都会采样；磁盘与系统/进程信息以 **不短于 5 秒** 的间隔采集。
+- 耗时采集在后台串行执行，不会重复堆积并发任务；可观察集合和属性通知只在 UI 线程更新。
+- WMI 查询返回脱离原生句柄的数据快照，及时释放查询资源。
+- 网速通过网卡累计字节数的差值计算（**Mbps，十进制**）；磁盘速率通过 WMI 已格式化的 **bytes/s** 计数器计算（UI 以 MiB/s 为基准标为 MB/s）。
+- 首次采样可能不具备网速基线，因此速度显示为零。WMI 计数器禁用时，磁盘速度可能一直为零。
+- 暂停仅暂停新的采集，不会清除屏幕上的上次数据。刷新间隔不会影响 60 点 CPU 历史数据的采样点数，因此 5 秒档不代表 60 秒。
+
+## 架构
+
+```
+Services/       Windows APIs、WMI 数据采集
+Models/         采集结果数据结构
+ViewModels/     UI 线程上的状态、通知和历史缓冲
+Views/          WinUI XAML 页面
+Controls/       自绘仪表盘与历史折线图
+```
+
+## 当前限制
+
+- 目前没有 GPU 温度、显卡性能或风扇转速采集，相关功能通常需要独立的硬件传感器后端。
+- 部分系统、网卡、虚拟机或 WMI 配置会影响计数器可用性。
+- 此项目仅针对 Windows，性能采集不需要网络请求或云端账户。
+- 发布版请在目标架构的 Windows 设备上完成构建与验收，当前没有自动化 UI 测试。

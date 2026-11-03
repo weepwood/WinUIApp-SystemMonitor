@@ -28,6 +28,7 @@ namespace WinUIApp
         public void SetViewModel(MainViewModel viewModel)
         {
             _viewModel = viewModel;
+            MainNavigationView.DataContext = viewModel;
 
             // 为所有页面设置 DataContext
             foreach (var page in _pages.Values)
@@ -38,6 +39,28 @@ namespace WinUIApp
             // 默认导航到总览页
             ContentFrame.Content = _pages["overview"];
             MainNavigationView.SelectedItem = NavOverview;
+        }
+
+        private void OnToggleMonitoringClicked(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel is null) return;
+
+            if (_viewModel.IsMonitoring)
+                _viewModel.PauseMonitoring();
+            else
+                _viewModel.ResumeMonitoring();
+
+            MonitoringToggleButton.Content = _viewModel.IsMonitoring ? "暂停" : "恢复";
+        }
+
+        private void OnRefreshIntervalChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_viewModel is null) return;
+            if (RefreshIntervalSelector.SelectedItem is ComboBoxItem item &&
+                int.TryParse(item.Tag?.ToString(), out int seconds))
+            {
+                _viewModel.SetRefreshInterval(seconds);
+            }
         }
 
         private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

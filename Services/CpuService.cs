@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Management;
 using WinUIApp.Models;
 
@@ -33,6 +34,10 @@ public class CpuService
             info.LogicalProcessorCount = Environment.ProcessorCount;
         }
 
+        if (info.LogicalProcessorCount <= 0)
+            info.LogicalProcessorCount = Environment.ProcessorCount;
+        if (info.CoreCount <= 0)
+            info.CoreCount = Environment.ProcessorCount;
         info.PerCoreUsage = new List<float>(new float[info.LogicalProcessorCount]);
         return info;
     }
@@ -47,7 +52,11 @@ public class CpuService
             var results = HardwareInfoService.ExecuteQuery("SELECT LoadPercentage FROM Win32_Processor");
             if (results.Count > 0)
             {
-                return HardwareInfoService.GetPropertyValue<uint>(results[0], "LoadPercentage") ?? 0;
+                var cpu = results[0];
+                // WMI Win32_Processor.LoadPercentage is CIM_UINT16 (ushort).
+                return HardwareInfoService.GetPropertyValue<ushort>(cpu, "LoadPercentage")
+                    ?? HardwareInfoService.GetPropertyValue<uint>(cpu, "LoadPercentage")
+                    ?? 0;
             }
         }
         catch (Exception) { }
@@ -64,10 +73,12 @@ public class CpuService
         {
             var results = HardwareInfoService.ExecuteQuery(
                 "SELECT Name, PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE Name <> '_Total' AND Name <> 'Idle'");
-            foreach (var obj in results)
+            foreach (var obj in results.OrderBy(o =>
+                int.TryParse(HardwareInfoService.GetStringProperty(o, "Name"), out int index)
+                    ? index : int.MaxValue))
             {
                 var usage = HardwareInfoService.GetPropertyValue<ulong>(obj, "PercentProcessorTime") ?? 0;
-                usages.Add(usage);
+                usages.Add((float)Math.Clamp((double)usage, 0, 100));
             }
         }
         catch (Exception) { }

@@ -20,8 +20,8 @@ public sealed class ArcGauge : UserControl
     private readonly TextBlock _subtitleText;
 
     public static readonly DependencyProperty PercentProperty =
-        DependencyProperty.Register(nameof(Percent), typeof(double), typeof(ArcGauge),
-            new PropertyMetadata(0.0, OnVisualPropertyChanged));
+        DependencyProperty.Register(nameof(Percent), typeof(float), typeof(ArcGauge),
+            new PropertyMetadata(0f, OnVisualPropertyChanged));
 
     public static readonly DependencyProperty TitleProperty =
         DependencyProperty.Register(nameof(Title), typeof(string), typeof(ArcGauge),
@@ -39,9 +39,9 @@ public sealed class ArcGauge : UserControl
         DependencyProperty.Register(nameof(StrokeWidth), typeof(double), typeof(ArcGauge),
             new PropertyMetadata(18.0, OnVisualPropertyChanged));
 
-    public double Percent
+    public float Percent
     {
-        get => (double)GetValue(PercentProperty);
+        get => (float)GetValue(PercentProperty);
         set => SetValue(PercentProperty, value);
     }
 
