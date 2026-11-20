@@ -17,7 +17,7 @@ public sealed class UsageHistory : BaseViewModel
         if (_window.Count == Capacity) _window.Dequeue();
         _window.Enqueue(value);
         Samples = _window.ToArray();
-        Summary = $"{Samples.Length} 个采样点  ·  峰值 {Samples.Max():0.0}%";
+        Summary = $"{Samples.Length} 点  ·  平均 {Samples.Average():0.0}%  ·  峰值 {Samples.Max():0.0}%";
         OnPropertyChanged(nameof(Samples));
         OnPropertyChanged(nameof(Summary));
     }

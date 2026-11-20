@@ -2,26 +2,23 @@
 
 基于 **WinUI 3 + .NET 8** 的 Windows 本地系统监控工具，采用 Mica 背景与 Fluent 风格界面。
 
+## 下载与运行
+
+从 **[最新正式版](https://github.com/weepwood/WinUIApp-SystemMonitor/releases/latest)** 下载 `SystemMonitor-vX.Y.Z-win-x64-setup.exe`。这是 **WinUI 3 完整版的安装程序**：双击安装后，从开始菜单打开 **System Monitor**。安装到当前用户目录，无需管理员权限，也不必单独安装 .NET 或 Windows App SDK。可在 Windows「已安装的应用」中卸载。仅发布 Windows x64 安装程序，不再提供单文件轻量客户端。
+
+支持 Windows 10 1809 及以上；Mica 效果取决于 Windows 版本与透明效果等系统设置，不支持时仍保留 Fluent 布局。可用 `Get-FileHash <安装程序路径> -Algorithm SHA256` 对照发布页的 `.sha256` 文件。
+
 ## 完整版功能
 
-- **总览**：CPU 与内存并排展示当前使用率、最近 60 个采样点的趋势与窗口峰值；窄窗口下改为单列。下方显示设备概况、磁盘占用与网卡速率。
+- **总览**：CPU 与内存并排展示当前使用率、最近 60 个采样点的趋势与平均值与峰值；窄窗口下改为单列。下方显示设备概况、磁盘占用与网卡速率。
 - **复制摘要**：首次采样完成后，可复制带更新时间的监测数据。摘要取自界面上最近一次更新的值，不重新查询硬件，不包含 IP 地址。
 - **CPU**：处理器型号、使用率、逻辑核心占用与最近 60 个采样点的曲线。
 - **内存**：物理内存、缓存、已提交内存和内存池指标。
 - **磁盘**：逻辑驱动器容量、已用比例以及可用时的读写速率。
 - **网络**：网卡状态、IP 地址与实时上传/下载速率。
 - **系统信息**：系统版本、BIOS、主板、运行时间和进程/线程/句柄总数，以及按工作集排序的前五个进程。
+- **监测偏好**：通过工具栏齿轮或导航栏设置切换跟随系统 / 浅色 / 深色，启用窗口置顶和调整刷新间隔。偏好保存在本机 `%LOCALAPPDATA%\WinUIApp-SystemMonitor\preferences.json`。
 - **刷新控制**：1 / 2 / 5 秒刷新、暂停与恢复，以及最近更新时间。
-
-## 下载与运行
-
-**轻量版（单 EXE）**：在 [Releases](https://github.com/weepwood/WinUIApp-SystemMonitor/releases) 下载 `SystemMonitor-Lite-win-x64.exe`，直接双击，无需解压或管理员权限。适用于 Windows 10 1809 及以上或 Windows 11 x64 桌面版，使用系统自带的 .NET Framework 4.7.2 或更高版本，不附带 .NET 8、Windows App SDK 或安装器。
-
-轻量版通过同一套 Services 采集 CPU、内存、磁盘和网速，用「内存前五」按工作集查看内存占用最大的可读进程。可调节刷新间隔、暂停或将窗口置顶。需要历史曲线、逐核心数据和硬件详情时，请使用完整版。
-
-**完整 WinUI 版**：从 [v1.0.0](https://github.com/weepwood/WinUIApp-SystemMonitor/releases/tag/v1.0.0) 等完整版发布页下载 ZIP，完整解压后运行 `WinUIApp.exe`。
-
-**维护者发布**：在 Actions → Windows Build → Run workflow 选择分支、版本（`lite` 或 `full`）和新标签（如 `v1.1.0`）。轻量版从只有 EXE 的目录启动并等待首个采样显示，再发布同一文件；完整版沿用自包含 ZIP。标签留空不创建 Release。
 
 ## 开发与构建
 
@@ -32,7 +29,7 @@ dotnet restore WinUIApp.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 dotnet build WinUIApp.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-轻量版在 Windows 上用 `dotnet build Lite/SystemMonitor.Lite.csproj -c Release` 构建。
+发布：在 Actions → Windows Build → Run workflow 选择分支并输入新标签（如 `v1.2.0`）。Windows runner 自包含发布 WinUI 项目，通过 Inno Setup 6 生成安装程序，并在临时目录验证安装、启动与卸载。验证通过后发布安装程序与 SHA-256 文件。标签留空则仅编译。
 
 从 `WinUIApp.slnx` 也可以在 Visual Studio 中打开、编译并运行。CI 使用 GitHub Actions Windows runner 检查 x64 Debug 构建。
 
@@ -61,6 +58,8 @@ Controls/       自绘仪表盘与历史折线图
 2. 切换到 5 秒档并暂停：更新时间、曲线和峰值应保持不变。复制摘要到记事本，核对时间、CPU、内存与网速；恢复后曲线继续更新。
 3. 将窗口缩到 800 有效像素以下再拉宽，确认趋势卡在单列和双列之间切换。切换浅色/深色主题，检查卡片、图表与文字是否清晰。
 4. 在 CPU 和系统信息页检查多行参数，确认字段没有叠放。切回总览，确认历史未清空。
+
+5. 在「监测偏好」修改主题、置顶与采样间隔，切换页面、关闭并重新启动，确认外观、窗口行为与工具栏间隔一致。
 
 ## 当前限制
 
