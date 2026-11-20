@@ -87,6 +87,25 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource MonitorCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="内存占用前 5 的进程" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="按当前工作集排序 · 仅显示可读取的进程" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ItemsControl ItemsSource="{Binding SystemInfo.TopProcesses}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0,5" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="PID " /><Run Text="{Binding Id}" /></TextBlock>
+                                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontWeight="SemiBold" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <!-- 系统统计 -->
             <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>

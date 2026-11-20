@@ -78,7 +78,7 @@ public class CpuService
                     ? index : int.MaxValue))
             {
                 var usage = HardwareInfoService.GetPropertyValue<ulong>(obj, "PercentProcessorTime") ?? 0;
-                usages.Add((float)Math.Clamp((double)usage, 0, 100));
+                usages.Add((float)Math.Min(usage, 100UL));
             }
         }
         catch (Exception) { }

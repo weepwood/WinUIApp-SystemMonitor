@@ -1,3 +1,5 @@
+using System;
+
 namespace WinUIApp.Models;
 
 /// <summary>
@@ -17,4 +19,13 @@ public class SystemInfo
     public int ProcessCount { get; set; }
     public int ThreadCount { get; set; }
     public long HandleCount { get; set; }
+    public ProcessMemoryInfo[] TopProcesses { get; set; } = Array.Empty<ProcessMemoryInfo>();
+}
+
+public sealed class ProcessMemoryInfo(string name, int id, long workingSetBytes)
+{
+    public string Name { get; } = name;
+    public int Id { get; } = id;
+    public long WorkingSetBytes { get; } = workingSetBytes;
+    public string SizeText => $"{WorkingSetBytes / 1048576.0:N1} MiB";
 }
