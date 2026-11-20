@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System;
+using Microsoft.UI.Windowing;
+using WinUIApp.Services;
 using System.Collections.Generic;
 using WinUIApp.ViewModels;
 using WinUIApp.Views;
@@ -23,6 +24,7 @@ namespace WinUIApp
             _pages["disk"] = new DiskPage();
             _pages["network"] = new NetworkPage();
             _pages["system"] = new SystemInfoPage();
+            _pages["settings"] = new SettingsPage();
         }
 
         public void SetViewModel(MainViewModel viewModel)
@@ -35,6 +37,12 @@ namespace WinUIApp
             {
                 page.DataContext = viewModel;
             }
+
+            var preferences = MonitorPreferences.Load();
+            var settings = (SettingsPage)_pages["settings"];
+            settings.Initialize(preferences);
+            settings.PreferencesChanged += ApplyPreferences;
+            ApplyPreferences(preferences);
 
             // 默认导航到总览页
             ContentFrame.Content = _pages["overview"];
@@ -53,18 +61,29 @@ namespace WinUIApp
             MonitoringToggleButton.Content = _viewModel.IsMonitoring ? "暂停" : "恢复";
         }
 
-        private void OnRefreshIntervalChanged(object sender, SelectionChangedEventArgs e)
+        private void ApplyPreferences(MonitorPreferences preferences)
         {
-            if (_viewModel is null) return;
-            if (RefreshIntervalSelector.SelectedItem is ComboBoxItem item &&
-                int.TryParse(item.Tag?.ToString(), out int seconds))
+            MainNavigationView.RequestedTheme = preferences.Theme switch
             {
-                _viewModel.SetRefreshInterval(seconds);
-            }
+                "Dark" => ElementTheme.Dark,
+                "Light" => ElementTheme.Light,
+                _ => ElementTheme.Default
+            };
+            if (AppWindow.Presenter is OverlappedPresenter presenter)
+                presenter.IsAlwaysOnTop = preferences.AlwaysOnTop;
+            _viewModel?.SetRefreshInterval(preferences.IntervalSeconds);
         }
+
+        private void OnOpenSettings(object sender, RoutedEventArgs args) =>
+            MainNavigationView.SelectedItem = MainNavigationView.SettingsItem;
 
         private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
+            if (args.IsSettingsSelected)
+            {
+                ContentFrame.Content = _pages["settings"];
+                return;
+            }
             if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag)
             {
                 if (_pages.TryGetValue(tag, out var page))
