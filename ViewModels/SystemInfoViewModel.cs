@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
@@ -48,6 +47,8 @@ public sealed class SystemInfoViewModel : BaseViewModel
     private long _handleCount;
     public long HandleCount { get => _handleCount; set => SetProperty(ref _handleCount, value); }
 
+    public ProcessMemoryInfo[] TopProcesses { get; private set; } = Array.Empty<ProcessMemoryInfo>();
+
     // Invoked by a single sampling worker at most once every five seconds.
     public SystemInfo Capture()
     {
@@ -66,16 +67,7 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
         try
         {
-            var processes = Process.GetProcesses();
-            info.ProcessCount = processes.Length;
-            foreach (var process in processes)
-            {
-                using (process)
-                {
-                    try { info.ThreadCount += process.Threads.Count; } catch (Exception) { }
-                    try { info.HandleCount += process.HandleCount; } catch (Exception) { }
-                }
-            }
+            ProcessService.Sample(info);
         }
         catch (Exception) { }
 
@@ -140,6 +132,8 @@ public sealed class SystemInfoViewModel : BaseViewModel
         MotherboardManufacturer = info.MotherboardManufacturer;
         MotherboardProduct = info.MotherboardProduct;
         InstalledMemoryGB = info.InstalledMemoryGB;
+        TopProcesses = info.TopProcesses;
+        OnPropertyChanged(nameof(TopProcesses));
         ProcessCount = info.ProcessCount;
         ThreadCount = info.ThreadCount;
         HandleCount = info.HandleCount;

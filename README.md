@@ -2,7 +2,7 @@
 
 基于 **WinUI 3 + .NET 8** 的 Windows 本地系统监控工具，采用 Mica 背景与 Fluent 风格界面。
 
-## 功能
+## 完整版功能
 
 - **总览**：CPU 与内存并排展示当前使用率、最近 60 个采样点的趋势与窗口峰值；窄窗口下改为单列。下方显示设备概况、磁盘占用与网卡速率。
 - **复制摘要**：首次采样完成后，可复制带更新时间的监测数据。摘要取自界面上最近一次更新的值，不重新查询硬件，不包含 IP 地址。
@@ -10,14 +10,18 @@
 - **内存**：物理内存、缓存、已提交内存和内存池指标。
 - **磁盘**：逻辑驱动器容量、已用比例以及可用时的读写速率。
 - **网络**：网卡状态、IP 地址与实时上传/下载速率。
-- **系统信息**：系统版本、BIOS、主板、运行时间和进程/线程/句柄总数。
+- **系统信息**：系统版本、BIOS、主板、运行时间和进程/线程/句柄总数，以及按工作集排序的前五个进程。
 - **刷新控制**：1 / 2 / 5 秒刷新、暂停与恢复，以及最近更新时间。
 
 ## 下载与运行
 
-从 [Releases](https://github.com/weepwood/WinUIApp-SystemMonitor/releases/latest) 下载 `SystemMonitor-vX.Y.Z-win-x64.zip`，完整解压后双击 `WinUIApp.exe`。请勿仅复制 EXE；同目录的运行时与资源文件也是程序的一部分。可使用 `Get-FileHash <ZIP路径> -Algorithm SHA256` 与随附的 `.sha256` 文件核对。
+**轻量版（单 EXE）**：在 [Releases](https://github.com/weepwood/WinUIApp-SystemMonitor/releases) 下载 `SystemMonitor-Lite-win-x64.exe`，直接双击，无需解压或管理员权限。适用于 Windows 10 1809 及以上或 Windows 11 x64 桌面版，使用系统自带的 .NET Framework 4.7.2 或更高版本，不附带 .NET 8、Windows App SDK 或安装器。
 
-维护者可在 Actions → Windows Build → Run workflow 中选择待发布的分支并填写新的 `release_tag`（如 `v1.0.0`）。流程先编译，再打包并从解压目录测试启动；成功后把 ZIP 与校验文件发布到对应提交。不填版本号则只执行 Debug 构建。
+轻量版通过同一套 Services 采集 CPU、内存、磁盘和网速，用「内存前五」按工作集查看内存占用最大的可读进程。可调节刷新间隔、暂停或将窗口置顶。需要历史曲线、逐核心数据和硬件详情时，请使用完整版。
+
+**完整 WinUI 版**：从 [v1.0.0](https://github.com/weepwood/WinUIApp-SystemMonitor/releases/tag/v1.0.0) 等完整版发布页下载 ZIP，完整解压后运行 `WinUIApp.exe`。
+
+**维护者发布**：在 Actions → Windows Build → Run workflow 选择分支、版本（`lite` 或 `full`）和新标签（如 `v1.1.0`）。轻量版从只有 EXE 的目录启动并等待首个采样显示，再发布同一文件；完整版沿用自包含 ZIP。标签留空不创建 Release。
 
 ## 开发与构建
 
@@ -27,6 +31,8 @@
 dotnet restore WinUIApp.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 dotnet build WinUIApp.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
+
+轻量版在 Windows 上用 `dotnet build Lite/SystemMonitor.Lite.csproj -c Release` 构建。
 
 从 `WinUIApp.slnx` 也可以在 Visual Studio 中打开、编译并运行。CI 使用 GitHub Actions Windows runner 检查 x64 Debug 构建。
 

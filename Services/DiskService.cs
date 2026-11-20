@@ -29,7 +29,7 @@ public sealed class DiskService
                     disk.FreeSpaceGB = HardwareInfoService.BytesToGB((ulong)drive.TotalFreeSpace);
                     disk.UsedSpaceGB = Math.Max(0, disk.TotalSizeGB - disk.FreeSpaceGB);
                     disk.UsagePercent = disk.TotalSizeGB > 0
-                        ? (float)Math.Clamp(Math.Round(disk.UsedSpaceGB / disk.TotalSizeGB * 100, 1), 0, 100)
+                        ? (float)Math.Min(100, Math.Round(disk.UsedSpaceGB / disk.TotalSizeGB * 100, 1))
                         : 0;
                 }
                 disk.DriveType = drive.DriveType switch
