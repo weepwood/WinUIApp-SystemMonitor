@@ -15,7 +15,9 @@
     </Window.SystemBackdrop>
 
     <NavigationView x:Name="MainNavigationView"
-                    PaneDisplayMode="LeftCompact"
+                    PaneDisplayMode="Auto"
+                    OpenPaneLength="200" PaneTitle="系统监测"
+                    IsBackButtonVisible="Collapsed"
                     IsBackEnabled="False"
                     IsSettingsVisible="False"
                     SelectionChanged="OnNavigationSelectionChanged">
@@ -60,8 +62,8 @@
             </Grid.RowDefinitions>
 
             <!-- Compact toolbar remains visible while browsing monitoring pages. -->
-            <Border Background="{ThemeResource CardBackgroundFillColorSecondary}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}"
+            <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="0,0,0,1" Padding="20,10">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
@@ -72,13 +74,13 @@
                     <StackPanel Spacing="2" VerticalAlignment="Center">
                         <TextBlock Text="{Binding StatusText}" FontSize="13" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding LastUpdatedText}" FontSize="11"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
                                 VerticalAlignment="Center">
                         <TextBlock Text="刷新间隔" VerticalAlignment="Center" FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="RefreshIntervalSelector" Width="100"
                                   SelectedIndex="0" SelectionChanged="OnRefreshIntervalChanged"
                                   AutomationProperties.Name="监控刷新间隔">
