@@ -10,6 +10,8 @@ public class MemoryViewModel : BaseViewModel
 {
     private readonly MemoryService _service = new();
 
+    public UsageHistory History { get; } = new();
+
     private double _totalGB;
     public double TotalGB
     {
@@ -66,7 +68,7 @@ public class MemoryViewModel : BaseViewModel
         set => SetProperty(ref _nonPagedPoolGB, value);
     }
 
-    private string _usageText = "0%";
+    private string _usageText = "—";
     public string UsageText
     {
         get => _usageText;
@@ -102,6 +104,7 @@ public class MemoryViewModel : BaseViewModel
         PagedPoolGB = info.PagedPoolGB;
         NonPagedPoolGB = info.NonPagedPoolGB;
 
+        History.Append(UsagePercent);
         UsageText = $"{UsagePercent:0.0}%";
         TotalText = $"{TotalGB:0.0} GB";
         AvailableText = $"{AvailableGB:0.0} GB";

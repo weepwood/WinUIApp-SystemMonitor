@@ -12,16 +12,14 @@
             <TextBlock Text="CPU 详细监测" Style="{StaticResource TitleTextBlockStyle}" />
 
             <!-- CPU 使用率曲线 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="CPU 使用率历史 (最近 60 秒)"
+                        <TextBlock Text="CPU 使用率历史 (最近 60 个采样点)"
                                    Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <TextBlock FontSize="24" Foreground="#FF0078D4"
@@ -29,21 +27,22 @@
                                        Text="{Binding Cpu.UsageText}" />
                         </StackPanel>
                     </Grid>
-                    <controls:CpuHistoryChart
+                    <controls:UsageHistoryChart
                         Height="200"
-                        Data="{Binding Cpu.UsageHistory}"
-                        DataCount="{Binding Cpu.HistoryCount}"
+                        Data="{Binding Cpu.History.Samples}"
                         LineColor="#FF0078D4" />
                 </StackPanel>
             </Border>
 
             <!-- CPU 详情 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>
                     <TextBlock Text="处理器信息" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
                     <Grid ColumnSpacing="24" RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -52,29 +51,27 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Text="名称:" Grid.Row="0" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Text="{Binding Cpu.Name}" Grid.Row="0" Grid.Column="1" FontSize="12"
                                    TextTrimming="CharacterEllipsis" />
 
                         <TextBlock Text="当前频率:" Grid.Row="0" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Text="{Binding Cpu.ClockSpeedText}" Grid.Row="0" Grid.Column="3" FontSize="12" />
 
                         <TextBlock Text="物理核心:" Grid.Row="1" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Text="{Binding Cpu.CoreCount}" Grid.Row="1" Grid.Column="1" FontSize="12" />
 
                         <TextBlock Text="逻辑处理器:" Grid.Row="1" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Text="{Binding Cpu.LogicalProcessorCount}" Grid.Row="1" Grid.Column="3" FontSize="12" />
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- 每核心使用率 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>
                     <TextBlock Text="每核心使用率" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
                     <ItemsControl ItemsSource="{Binding Cpu.PerCoreUsage}">
@@ -93,7 +90,7 @@
                                                  Foreground="#FF0078D4" />
                                     <TextBlock Grid.Column="2" Text="{Binding UsageText}"
                                                FontSize="10" VerticalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondary}" />
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

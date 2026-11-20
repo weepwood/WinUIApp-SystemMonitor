@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Text;
 using Microsoft.UI.Dispatching;
 using WinUIApp.Models;
 
@@ -15,6 +16,9 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     private DispatcherQueueTimer? _timer;
     private bool _isSampling;
     private bool _disposed;
+    private int _samplingGeneration;
+    private DateTimeOffset? _lastPublished;
+    public bool HasSample => _lastPublished.HasValue;
     private DateTime _lastSlowSampleUtc = DateTime.MinValue;
     private int _intervalSeconds = 1;
     private bool _isMonitoring;
@@ -71,6 +75,7 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     public void PauseMonitoring()
     {
         _timer?.Stop();
+        _samplingGeneration++;
         IsMonitoring = false;
         StatusText = "已暂停";
     }
@@ -111,6 +116,7 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     {
         if (_disposed || !IsMonitoring || _isSampling) return;
         _isSampling = true;
+        int generation = _samplingGeneration;
 
         // CPU / memory / network are lightweight samples relative to disk and process enumeration.
         // Slow metrics are sampled at most once every five seconds.
@@ -128,7 +134,7 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
             {
                 try
                 {
-                    if (_disposed) return;
+                    if (_disposed || generation != _samplingGeneration) return;
                     Cpu.Apply(snapshot.Cpu);
                     Memory.Apply(snapshot.Memory);
                     Network.Apply(snapshot.Network);
@@ -137,7 +143,10 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                     SystemInfo.UpdateUptime();
 
                     if (collectSlow) _lastSlowSampleUtc = DateTime.UtcNow;
-                    LastUpdatedText = $"更新于 {DateTime.Now:HH:mm:ss}";
+                    bool firstSample = !HasSample;
+                    _lastPublished = DateTimeOffset.Now;
+                    LastUpdatedText = $"更新于 {_lastPublished:HH:mm:ss}";
+                    if (firstSample) OnPropertyChanged(nameof(HasSample));
                     if (IsMonitoring)
                         StatusText = $"监测中 · 每 {_intervalSeconds} 秒";
                 }
@@ -156,11 +165,27 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         {
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
-                if (!_disposed) StatusText = $"采集失败：{ex.Message}";
+                if (!_disposed && generation == _samplingGeneration) StatusText = $"采集失败：{ex.Message}";
                 _isSampling = false;
             }))
                 _isSampling = false;
         }
+    }
+
+    // Called on the UI thread: use displayed values without triggering hardware queries.
+    public string CreateSummary()
+    {
+        if (!HasSample) return string.Empty;
+        var text = new StringBuilder();
+        text.AppendLine($"本机监测摘要 · {_lastPublished:yyyy-MM-dd HH:mm:ss zzz}");
+        text.AppendLine($"系统：{SystemInfo.OsVersion}，运行时间 {SystemInfo.Uptime}，{SystemInfo.ProcessCount} 个进程");
+        text.AppendLine($"CPU：{Cpu.Name}，使用率 {Cpu.UsageText}，{Cpu.ClockSpeedText}");
+        text.AppendLine($"内存：已用 {Memory.UsedGB:0.0} / {Memory.TotalText}（{Memory.UsageText}）");
+        foreach (var drive in Disk.Drives)
+            text.AppendLine($"磁盘 {drive.DriveName}：{drive.SizeText}");
+        foreach (var adapter in Network.Adapters)
+            text.AppendLine($"网络 {adapter.AdapterName}：下载 {adapter.DownloadSpeedText}，上传 {adapter.UploadSpeedText}");
+        return text.ToString().TrimEnd();
     }
 
     public void StopMonitoring()

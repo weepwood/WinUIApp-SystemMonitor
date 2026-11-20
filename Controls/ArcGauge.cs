@@ -113,7 +113,6 @@ public sealed class ArcGauge : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = 14,
-            Foreground = new SolidColorBrush(Colors.White),
             Margin = new Thickness(0, -8, 0, 0),
         };
         _subtitleText = new TextBlock
@@ -121,7 +120,6 @@ public sealed class ArcGauge : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = 11,
-            Foreground = new SolidColorBrush(Colors.Gray),
             Margin = new Thickness(0, 16, 0, 0),
         };
 
@@ -159,7 +157,6 @@ public sealed class ArcGauge : UserControl
 
         double startAngleRad = startAngleDeg * Math.PI / 180.0;
         double sweepAngleRad = sweepAngleDeg * Math.PI / 180.0;
-        double endAngleRad = startAngleRad + sweepAngleRad;
 
         // 背景弧
         _backgroundArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);

@@ -11,9 +11,7 @@
             <TextBlock Text="内存详细监测" Style="{StaticResource TitleTextBlockStyle}" />
 
             <!-- 内存使用率环 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="物理内存使用率" Style="{StaticResource BodyStrongTextBlockStyle}"
                                HorizontalAlignment="Center" Margin="0,0,0,8" />
@@ -28,9 +26,7 @@
             </Border>
 
             <!-- 内存统计详情 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>
                     <TextBlock Text="内存统计" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
 
@@ -120,9 +116,7 @@
             </Border>
 
             <!-- 内存池 -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefault}"
-                    CornerRadius="8" Padding="16"
-                    BorderBrush="{ThemeResource CardStrokeColorDefault}" BorderThickness="1">
+            <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel>
                     <TextBlock Text="内存池" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
                     <Grid ColumnSpacing="24" RowSpacing="6">
@@ -134,14 +128,14 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Text="分页池:" Grid.Row="0" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Grid.Row="0" Grid.Column="1" FontSize="12">
                             <Run Text="{Binding Memory.PagedPoolGB}" />
                             <Run Text=" GB" />
                         </TextBlock>
 
                         <TextBlock Text="非分页池:" Grid.Row="0" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondary}" FontSize="12" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
                         <TextBlock Grid.Row="0" Grid.Column="3" FontSize="12">
                             <Run Text="{Binding Memory.NonPagedPoolGB}" />
                             <Run Text=" GB" />

@@ -5,14 +5,15 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
+using WinUIApp.ViewModels;
 using Windows.UI;
 
 namespace WinUIApp.Controls;
 
 /// <summary>
-/// CPU 历史使用率折线图控件，使用 WinUI Canvas 和 Polyline 绘制
+/// 历史使用率折线图控件，使用 WinUI Canvas 和 Polyline 绘制
 /// </summary>
-public sealed class CpuHistoryChart : UserControl
+public sealed class UsageHistoryChart : UserControl
 {
     private readonly Canvas _drawingCanvas;
     private readonly Polyline _dataLine;
@@ -21,27 +22,17 @@ public sealed class CpuHistoryChart : UserControl
     private readonly Rectangle _borderRect;
 
     public static readonly DependencyProperty DataProperty =
-        DependencyProperty.Register(nameof(Data), typeof(float[]), typeof(CpuHistoryChart),
+        DependencyProperty.Register(nameof(Data), typeof(float[]), typeof(UsageHistoryChart),
             new PropertyMetadata(Array.Empty<float>(), OnDataChanged));
 
-    public static readonly DependencyProperty DataCountProperty =
-        DependencyProperty.Register(nameof(DataCount), typeof(int), typeof(CpuHistoryChart),
-            new PropertyMetadata(0, OnDataChanged));
-
     public static readonly DependencyProperty LineColorProperty =
-        DependencyProperty.Register(nameof(LineColor), typeof(Color), typeof(CpuHistoryChart),
+        DependencyProperty.Register(nameof(LineColor), typeof(Color), typeof(UsageHistoryChart),
             new PropertyMetadata(Colors.DodgerBlue, OnDataChanged));
 
     public float[] Data
     {
         get => (float[])GetValue(DataProperty);
         set => SetValue(DataProperty, value);
-    }
-
-    public int DataCount
-    {
-        get => (int)GetValue(DataCountProperty);
-        set => SetValue(DataCountProperty, value);
     }
 
     public Color LineColor
@@ -52,11 +43,11 @@ public sealed class CpuHistoryChart : UserControl
 
     private static void OnDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is CpuHistoryChart chart)
+        if (d is UsageHistoryChart chart)
             chart.UpdateChart();
     }
 
-    public CpuHistoryChart()
+    public UsageHistoryChart()
     {
         _drawingCanvas = new Canvas();
 
@@ -65,7 +56,8 @@ public sealed class CpuHistoryChart : UserControl
         {
             var gridLine = new Line
             {
-                Stroke = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)),
+                Stroke = new SolidColorBrush(Colors.Gray),
+                Opacity = 0.32,
                 StrokeThickness = 1,
                 X1 = 0, X2 = 0,
                 Y1 = 0, Y2 = 0,
@@ -76,7 +68,8 @@ public sealed class CpuHistoryChart : UserControl
         // 边框
         _borderRect = new Rectangle
         {
-            Stroke = new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)),
+            Stroke = new SolidColorBrush(Colors.Gray),
+            Opacity = 0.45,
             StrokeThickness = 1,
             Fill = new SolidColorBrush(Colors.Transparent),
         };
@@ -163,7 +156,7 @@ public sealed class CpuHistoryChart : UserControl
 
         // 更新数据
         var data = Data;
-        int count = Math.Min(DataCount, data?.Length ?? 0);
+        int count = data?.Length ?? 0;
 
         if (count < 1 || data == null)
         {
@@ -181,7 +174,7 @@ public sealed class CpuHistoryChart : UserControl
 
         for (int i = 0; i < count; i++)
         {
-            double x = marginLeft + chartWidth * i / 59.0;
+            double x = marginLeft + chartWidth * i / (UsageHistory.Capacity - 1);
             double y = marginTop + chartHeight * (1.0 - Math.Clamp(data[i], 0, maxValue) / maxValue);
             var point = new Point(x, y);
             linePoints.Add(point);

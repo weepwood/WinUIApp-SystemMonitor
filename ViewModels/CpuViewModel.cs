@@ -32,7 +32,7 @@ public class CpuViewModel : BaseViewModel
         set => SetProperty(ref _clockSpeedMHz, value);
     }
 
-    private string _usageText = "0%";
+    private string _usageText = "—";
     public string UsageText
     {
         get => _usageText;
@@ -48,10 +48,7 @@ public class CpuViewModel : BaseViewModel
 
     public ObservableCollection<CoreUsageItem> PerCoreUsage { get; } = new();
 
-    // CPU 历史数据（最近 60 秒）
-    private readonly System.Collections.Generic.Queue<float> _usageHistory = new(60);
-    public float[] UsageHistory { get; private set; } = Array.Empty<float>();
-    public int HistoryCount => UsageHistory.Length;
+    public UsageHistory History { get; } = new();
 
     // Hardware queries run on the sampling worker, never on the UI thread.
     public CpuInfo Capture()
@@ -75,13 +72,7 @@ public class CpuViewModel : BaseViewModel
         ClockSpeedMHz = info.ClockSpeedMHz;
         ClockSpeedText = $"{(ClockSpeedMHz / 1000):0.00} GHz";
 
-        // Allocate a fresh array so the chart's dependency property receives a new value.
-        if (_usageHistory.Count == 60)
-            _usageHistory.Dequeue();
-        _usageHistory.Enqueue(UsagePercent);
-        UsageHistory = _usageHistory.ToArray();
-        OnPropertyChanged(nameof(UsageHistory));
-        OnPropertyChanged(nameof(HistoryCount));
+        History.Append(UsagePercent);
 
         // 更新每核心使用率
         var coreUsages = info.PerCoreUsage;
