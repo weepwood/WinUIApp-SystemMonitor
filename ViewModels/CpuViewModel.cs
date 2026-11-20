@@ -11,12 +11,8 @@ namespace WinUIApp.ViewModels;
 public class CpuViewModel : BaseViewModel
 {
     private readonly CpuService _service = new();
-    private CpuInfo _info;
+    private CpuInfo _info = new();
 
-    public CpuViewModel()
-    {
-        _info = _service.GetStaticCpuInfo();
-    }
 
     public string Name => _info.Name;
     public int CoreCount => _info.CoreCount;
@@ -53,35 +49,42 @@ public class CpuViewModel : BaseViewModel
     public ObservableCollection<CoreUsageItem> PerCoreUsage { get; } = new();
 
     // CPU 历史数据（最近 60 秒）
-    private readonly float[] _usageHistory = new float[60];
-    private int _historyIndex;
-    public float[] UsageHistory => _usageHistory;
-    public int HistoryCount => _historyIndex < 60 ? _historyIndex : 60;
+    private readonly System.Collections.Generic.Queue<float> _usageHistory = new(60);
+    public float[] UsageHistory { get; private set; } = Array.Empty<float>();
+    public int HistoryCount => UsageHistory.Length;
 
-    public void Refresh()
+    // Hardware queries run on the sampling worker, never on the UI thread.
+    public CpuInfo Capture()
     {
-        _service.UpdateCpuUsage(_info);
+        if (_info.LogicalProcessorCount == 0)
+            _info = _service.GetStaticCpuInfo();
 
-        UsagePercent = (float)Math.Round(_info.UsagePercent, 1);
+        _service.UpdateCpuUsage(_info);
+        return _info;
+    }
+
+    // Called only on the UI dispatcher.
+    public void Apply(CpuInfo info)
+    {
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(CoreCount));
+        OnPropertyChanged(nameof(LogicalProcessorCount));
+
+        UsagePercent = (float)Math.Round(info.UsagePercent, 1);
         UsageText = $"{UsagePercent:0.0}%";
-        ClockSpeedMHz = _info.ClockSpeedMHz;
+        ClockSpeedMHz = info.ClockSpeedMHz;
         ClockSpeedText = $"{(ClockSpeedMHz / 1000):0.00} GHz";
 
-        // 更新历史
-        if (_historyIndex < 60)
-        {
-            _usageHistory[_historyIndex] = UsagePercent;
-            _historyIndex++;
-            OnPropertyChanged(nameof(HistoryCount));
-        }
-        else
-        {
-            Array.Copy(_usageHistory, 1, _usageHistory, 0, 59);
-            _usageHistory[59] = UsagePercent;
-        }
+        // Allocate a fresh array so the chart's dependency property receives a new value.
+        if (_usageHistory.Count == 60)
+            _usageHistory.Dequeue();
+        _usageHistory.Enqueue(UsagePercent);
+        UsageHistory = _usageHistory.ToArray();
+        OnPropertyChanged(nameof(UsageHistory));
+        OnPropertyChanged(nameof(HistoryCount));
 
         // 更新每核心使用率
-        var coreUsages = _info.PerCoreUsage;
+        var coreUsages = info.PerCoreUsage;
         if (coreUsages != null)
         {
             for (int i = 0; i < coreUsages.Count; i++)
@@ -114,7 +117,11 @@ public class CoreUsageItem : BaseViewModel
     public float UsagePercent
     {
         get => _usagePercent;
-        set => SetProperty(ref _usagePercent, value);
+        set
+        {
+            if (SetProperty(ref _usagePercent, value))
+                OnPropertyChanged(nameof(UsageText));
+        }
     }
 
     public string UsageText => $"{UsagePercent:0.0}%";

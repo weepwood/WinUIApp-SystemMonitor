@@ -5,88 +5,68 @@ using System.Management;
 namespace WinUIApp.Services;
 
 /// <summary>
-/// WMI 查询和系统信息获取的通用辅助服务
+/// WMI access returns detached value snapshots, disposing native WMI handles promptly.
+/// This is important for a long-running monitoring application.
 /// </summary>
 public static class HardwareInfoService
 {
     private static readonly ManagementScope Scope = new(@"\\.\ROOT\CIMV2");
 
-    /// <summary>
-    /// 执行 WMI 查询并返回结果列表
-    /// </summary>
-    public static List<ManagementObject> ExecuteQuery(string query)
+    public static List<Dictionary<string, object?>> ExecuteQuery(string query)
     {
-        var results = new List<ManagementObject>();
+        var results = new List<Dictionary<string, object?>>();
         try
         {
             using var searcher = new ManagementObjectSearcher(Scope, new ObjectQuery(query));
             using var collection = searcher.Get();
             foreach (ManagementObject obj in collection)
             {
-                results.Add(obj);
+                using (obj)
+                {
+                    var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                    foreach (PropertyData property in obj.Properties)
+                        row[property.Name] = property.Value;
+                    results.Add(row);
+                }
             }
         }
         catch (Exception)
         {
-            // WMI 查询失败时静默处理，返回空列表
+            // WMI is optional; callers can display unavailable metrics as zero/unknown.
         }
         return results;
     }
 
-    /// <summary>
-    /// 安全获取 ManagementObject 的属性值
-    /// </summary>
-    public static T? GetPropertyValue<T>(ManagementObject obj, string propertyName) where T : struct
+    public static T? GetPropertyValue<T>(IReadOnlyDictionary<string, object?> obj, string propertyName)
+        where T : struct
     {
+        if (!obj.TryGetValue(propertyName, out object? value) || value is null)
+            return null;
+        if (value is T typedValue)
+            return typedValue;
         try
         {
-            var value = obj[propertyName];
-            if (value != null && value is T typedValue)
-                return typedValue;
-        }
-        catch (Exception) { }
-        return null;
-    }
-
-    /// <summary>
-    /// 安全获取 ManagementObject 的字符串属性值
-    /// </summary>
-    public static string GetStringProperty(ManagementObject obj, string propertyName)
-    {
-        try
-        {
-            var value = obj[propertyName];
-            return value?.ToString() ?? string.Empty;
+            // Some WMI providers expose compatible counter widths (UInt16/UInt32/UInt64).
+            return (T)Convert.ChangeType(value, typeof(T));
         }
         catch (Exception)
         {
-            return string.Empty;
+            return null;
         }
     }
 
-    /// <summary>
-    /// 将字节数转换为 GB
-    /// </summary>
+    public static string GetStringProperty(IReadOnlyDictionary<string, object?> obj, string propertyName)
+    {
+        return obj.TryGetValue(propertyName, out object? value)
+            ? value?.ToString() ?? string.Empty
+            : string.Empty;
+    }
+
     public static double BytesToGB(ulong bytes) => Math.Round(bytes / (1024.0 * 1024.0 * 1024.0), 2);
-
-    /// <summary>
-    /// 将字节数转换为 GB (long 版本)
-    /// </summary>
     public static double BytesToGB(long bytes) => Math.Round(bytes / (1024.0 * 1024.0 * 1024.0), 2);
-
-    /// <summary>
-    /// 将字节数转换为 MB
-    /// </summary>
     public static double BytesToMB(long bytes) => Math.Round(bytes / (1024.0 * 1024.0), 2);
-
-    /// <summary>
-    /// 将比特数转换为 Mbps
-    /// </summary>
     public static double BitsToMbps(long bits) => Math.Round(bits / 1_000_000.0, 2);
 
-    /// <summary>
-    /// 格式化字节数为可读字符串
-    /// </summary>
     public static string FormatBytes(ulong bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
@@ -100,9 +80,6 @@ public static class HardwareInfoService
         return $"{size:0.##} {sizes[order]}";
     }
 
-    /// <summary>
-    /// 格式化比特率为可读字符串
-    /// </summary>
     public static string FormatSpeed(double mbps)
     {
         if (mbps >= 1000)

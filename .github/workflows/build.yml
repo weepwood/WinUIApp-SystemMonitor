@@ -1,0 +1,22 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [master, "feat/**"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build WinUI 3 (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore WinUIApp.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+      - name: Build
+        run: dotnet build WinUIApp.csproj --no-restore -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64

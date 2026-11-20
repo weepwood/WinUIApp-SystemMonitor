@@ -53,7 +53,48 @@
             </NavigationViewItem>
         </NavigationView.MenuItems>
 
-        <Frame x:Name="ContentFrame" Padding="0" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Compact toolbar remains visible while browsing monitoring pages. -->
+            <Border Background="{ThemeResource CardBackgroundFillColorSecondary}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefault}"
+                    BorderThickness="0,0,0,1" Padding="20,10">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusText}" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding LastUpdatedText}" FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondary}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="刷新间隔" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondary}" />
+                        <ComboBox x:Name="RefreshIntervalSelector" Width="100"
+                                  SelectedIndex="0" SelectionChanged="OnRefreshIntervalChanged"
+                                  AutomationProperties.Name="监控刷新间隔">
+                            <ComboBoxItem Content="1 秒" Tag="1" />
+                            <ComboBoxItem Content="2 秒" Tag="2" />
+                            <ComboBoxItem Content="5 秒" Tag="5" />
+                        </ComboBox>
+                        <Button x:Name="MonitoringToggleButton" Content="暂停"
+                                Click="OnToggleMonitoringClicked"
+                                AutomationProperties.Name="暂停或恢复监控" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Frame x:Name="ContentFrame" Grid.Row="1" Padding="0" />
+        </Grid>
 
     </NavigationView>
 </Window>
