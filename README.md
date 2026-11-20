@@ -13,6 +13,12 @@
 - **系统信息**：系统版本、BIOS、主板、运行时间和进程/线程/句柄总数。
 - **刷新控制**：1 / 2 / 5 秒刷新、暂停与恢复，以及最近更新时间。
 
+## 下载与运行
+
+从 [Releases](https://github.com/weepwood/WinUIApp-SystemMonitor/releases/latest) 下载 `SystemMonitor-vX.Y.Z-win-x64.zip`，完整解压后双击 `WinUIApp.exe`。请勿仅复制 EXE；同目录的运行时与资源文件也是程序的一部分。可使用 `Get-FileHash <ZIP路径> -Algorithm SHA256` 与随附的 `.sha256` 文件核对。
+
+维护者可在 Actions → Windows Build → Run workflow 中选择待发布的分支并填写新的 `release_tag`（如 `v1.0.0`）。流程先编译，再打包并从解压目录测试启动；成功后把 ZIP 与校验文件发布到对应提交。不填版本号则只执行 Debug 构建。
+
 ## 开发与构建
 
 系统要求：Windows 10 1809 及以上，Visual Studio 2022（安装 Windows 应用开发相关工作负载）、.NET 8 SDK。项目默认平台为 x64。

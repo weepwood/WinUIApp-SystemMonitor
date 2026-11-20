@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Publish a portable x64 release (e.g. v1.0.0); leave empty for a debug build'
+        type: string
+        required: false
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -20,3 +28,54 @@ jobs:
         run: dotnet restore WinUIApp.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64
       - name: Build
         run: dotnet build WinUIApp.csproj --no-restore -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+
+  release:
+    name: Publish portable Windows x64
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate release version
+        run: |
+          if ($env:RELEASE_TAG -cnotmatch '^v\d+\.\d+\.\d+$') { throw 'Expected a release tag such as v1.0.0' }
+      - name: Publish unpackaged app with .NET and Windows App SDK runtimes
+        run: >-
+          dotnet publish WinUIApp.csproj -c Release -r win-x64 --self-contained true
+          -p:Platform=x64 -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true
+          -p:Version=$($env:RELEASE_TAG.Substring(1)) -o portable
+      - name: Archive and smoke-test the extracted app
+        run: |
+          $zip = "SystemMonitor-$env:RELEASE_TAG-win-x64.zip"
+          Compress-Archive -Path portable/* -DestinationPath $zip
+          $dir = Join-Path $env:RUNNER_TEMP 'system-monitor-test'
+          Expand-Archive $zip $dir
+          $app = Start-Process "$dir/WinUIApp.exe" -WorkingDirectory $dir -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(60)
+            do {
+              Start-Sleep -Seconds 1
+              $app.Refresh()
+              if ($app.HasExited) { throw "Startup failed (exit $($app.ExitCode))" }
+            } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
+            if ($app.MainWindowHandle -eq 0) { throw 'No main window appeared' }
+            Start-Sleep -Seconds 5
+            if ($app.HasExited) { throw "App exited after opening its window ($($app.ExitCode))" }
+          } finally {
+            if (!$app.HasExited) { $app.Kill(); $app.WaitForExit() }
+          }
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $zip" | Set-Content -Encoding ascii "$zip.sha256"
+      - name: Create release at the tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "SystemMonitor-$env:RELEASE_TAG-win-x64.zip"
+          gh release create $env:RELEASE_TAG $zip "$zip.sha256" --target $env:GITHUB_SHA --title "System Monitor $env:RELEASE_TAG · Windows x64" --notes "Windows x64 便携版。请完整解压 ZIP，保留所有文件，双击 WinUIApp.exe 启动。已包含 .NET 和 Windows App SDK 运行时。另附 SHA-256 校验文件。"
