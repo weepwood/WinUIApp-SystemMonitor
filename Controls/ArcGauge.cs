@@ -1,4 +1,5 @@
 using System;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -27,7 +28,8 @@ public sealed class ArcGauge : UserControl
     private double _displayedFraction;
     private double _targetFraction;
     private double _animationFrom;
-    private TimeSpan _animationStart;
+    private DateTime _animationStart;
+    private DispatcherQueueTimer? _animationTimer;
     private bool _isAnimating;
 
     public static readonly DependencyProperty PercentProperty = DependencyProperty.Register(
@@ -130,6 +132,12 @@ public sealed class ArcGauge : UserControl
         _rootGrid.Children.Add(_captionText);
 
         Content = _rootGrid;
+        _animationTimer = DispatcherQueue.GetForCurrentThread()?.CreateTimer();
+        if (_animationTimer != null)
+        {
+            _animationTimer.Interval = TimeSpan.FromMilliseconds(16);
+            _animationTimer.Tick += OnAnimationTick;
+        }
         SizeChanged += (_, _) => UpdateGauge();
         Loaded += (_, _) =>
         {
@@ -169,19 +177,26 @@ public sealed class ArcGauge : UserControl
         }
 
         _animationFrom = _displayedFraction;
-        _animationStart = TimeSpan.MinValue;
+        _animationStart = DateTime.MinValue;
+
+        if (_animationTimer == null)
+        {
+            _displayedFraction = _targetFraction;
+            UpdateGauge();
+            return;
+        }
 
         if (!_isAnimating)
         {
             _isAnimating = true;
-            CompositionTarget.Rendering += OnRendering;
+            _animationTimer.Start();
         }
     }
 
-    private void OnRendering(object? sender, object e)
+    private void OnAnimationTick(DispatcherQueueTimer sender, object args)
     {
-        TimeSpan now = e is RenderingEventArgs args ? args.RenderingTime : TimeSpan.Zero;
-        if (_animationStart == TimeSpan.MinValue)
+        DateTime now = DateTime.UtcNow;
+        if (_animationStart == DateTime.MinValue)
             _animationStart = now;
 
         double elapsed = (now - _animationStart).TotalMilliseconds;
@@ -204,7 +219,7 @@ public sealed class ArcGauge : UserControl
         if (!_isAnimating)
             return;
 
-        CompositionTarget.Rendering -= OnRendering;
+        _animationTimer?.Stop();
         _isAnimating = false;
     }
 
