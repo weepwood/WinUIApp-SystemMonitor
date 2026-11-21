@@ -17,8 +17,12 @@ public static class PageSizing
     /// <summary>低于此宽度时使用最紧凑留白。</summary>
     public const double TightWidth = 440;
 
-    /// <summary>为页面内容容器挂上按宽度变化的留白。</summary>
-    public static void Attach(FrameworkElement source, Panel content)
+    /// <summary>
+    /// 为页面内容容器挂上按宽度变化的留白。
+    /// 参数取 <see cref="StackPanel"/>：各页面的内容根都是 StackPanel，
+    /// 而 Padding 在 WinUI 中并不由 Panel 基类提供。
+    /// </summary>
+    public static void Attach(FrameworkElement source, StackPanel content)
     {
         if (source is null || content is null)
             return;
@@ -27,7 +31,7 @@ public static class PageSizing
         content.Loaded += (_, _) => Apply(content, source.ActualWidth);
     }
 
-    private static void Apply(Panel content, double width)
+    private static void Apply(StackPanel content, double width)
     {
         if (!double.IsFinite(width) || width <= 0)
             return;

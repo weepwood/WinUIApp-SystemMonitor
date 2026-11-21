@@ -30,11 +30,13 @@ public static class Breakpoints
         if (!double.IsFinite(width) || width <= 0)
             return 0;
 
-        // FrameworkElement 没有 Padding；只有 Control / Border / Panel 等子类型才有。
+        // FrameworkElement 与 Panel 都没有 Padding：
+        // 只有 Control、Border 以及 WinUI 3 的 StackPanel 提供该属性。
         Thickness padding = element switch
         {
             Control control => control.Padding,
             Border border => border.Padding,
+            StackPanel stack => stack.Padding,
             _ => default,
         };
 
