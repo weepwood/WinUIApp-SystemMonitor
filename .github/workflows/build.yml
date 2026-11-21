@@ -69,7 +69,7 @@ jobs:
           Remove-Item $diagnosticPath -Force -ErrorAction SilentlyContinue
           $env:WINUI_STARTUP_LOG = $diagnosticPath
           $env:WINUI_SKIP_MONITORING = '1'
-          $env:WINUI_SKIP_VIEWMODEL = '1'
+          $env:WINUI_SKIP_SET_VIEWMODEL = '1'
           $app = Start-Process "$dir/WinUIApp.exe" -WorkingDirectory $dir -PassThru
           try {
             $deadline = (Get-Date).AddSeconds(60)
