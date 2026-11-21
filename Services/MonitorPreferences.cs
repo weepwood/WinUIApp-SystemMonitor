@@ -11,7 +11,7 @@ namespace WinUIApp.Services;
 /// </summary>
 public sealed class MonitorPreferences
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     private static readonly string FolderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -24,6 +24,9 @@ public sealed class MonitorPreferences
 
     /// <summary>Mica / Acrylic / Solid</summary>
     public string Backdrop { get; set; } = "Mica";
+
+    /// <summary>动画效果：System 跟随系统 / Full 始终开启 / Off 关闭。</summary>
+    public string MotionMode { get; set; } = "System";
 
     public bool AlwaysOnTop { get; set; }
 
@@ -117,6 +120,7 @@ public sealed class MonitorPreferences
 
         Theme = Theme is "Light" or "Dark" ? Theme : "System";
         Backdrop = Backdrop is "Acrylic" or "Solid" ? Backdrop : "Mica";
+        MotionMode = MotionMode is "Full" or "Off" ? MotionMode : "System";
         IntervalSeconds = IntervalSeconds is 1 or 2 or 5 or 10 ? IntervalSeconds : 1;
         HistoryCapacity = HistoryCapacity is 30 or 60 or 120 ? HistoryCapacity : 60;
         TopProcessCount = TopProcessCount is 10 or 15 ? TopProcessCount : 5;

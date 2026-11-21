@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.System;
 using Windows.UI;
+using WinUIApp.Controls;
 using WinUIApp.Services;
 using WinUIApp.ViewModels;
 using WinUIApp.Views;
@@ -82,7 +83,7 @@ namespace WinUIApp
             ApplyPreferences(_preferences);
 
             // 默认导航到总览页
-            ContentFrame.Content = _pages["overview"];
+            ShowPage(_pages["overview"]);
             MainNavigationView.SelectedItem = NavOverview;
         }
 
@@ -135,6 +136,7 @@ namespace WinUIApp
 
             ApplyTheme();
             ApplyBackdrop();
+            MotionSettings.Configure(preferences.MotionMode);
 
             if (AppWindow.Presenter is OverlappedPresenter presenter)
                 presenter.IsAlwaysOnTop = preferences.AlwaysOnTop;
@@ -334,15 +336,31 @@ namespace WinUIApp
         {
             if (args.IsSettingsSelected)
             {
-                ContentFrame.Content = _pages["settings"];
+                ShowPage(_pages["settings"]);
                 return;
             }
 
             if (args.SelectedItem is NavigationViewItem item && item.Tag is string tag
                 && _pages.TryGetValue(tag, out var page))
             {
-                ContentFrame.Content = page;
+                ShowPage(page);
             }
+        }
+
+        /// <summary>
+        /// 页面切换时播放入场动效：内容轻抬淡入，让导航方向更易被感知。
+        /// 页面实例会被缓存复用，因此动画挂在页面本身而非 Frame 上。
+        /// </summary>
+        private void ShowPage(Page page)
+        {
+            if (ContentFrame.Content == page)
+            {
+                MotionSettings.PlayPageEntrance(page);
+                return;
+            }
+
+            ContentFrame.Content = page;
+            MotionSettings.PlayPageEntrance(page);
         }
     }
 }
