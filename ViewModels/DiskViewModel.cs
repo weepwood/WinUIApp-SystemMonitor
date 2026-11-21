@@ -68,6 +68,13 @@ public class DiskViewModel : BaseViewModel
         private set => SetProperty(ref _hasDrives, value);
     }
 
+    private bool _hasUnavailableSpeeds;
+    public bool HasUnavailableSpeeds
+    {
+        get => _hasUnavailableSpeeds;
+        private set => SetProperty(ref _hasUnavailableSpeeds, value);
+    }
+
     public List<DiskInfo> Capture() => _service.GetDiskInfos();
 
     public void Apply(IReadOnlyList<DiskInfo> disks)
@@ -111,6 +118,8 @@ public class DiskViewModel : BaseViewModel
             Drives.RemoveAt(i);
         }
 
+        // 网络盘等没有本地性能计数器是正常情况，不触发全局警告。
+        HasUnavailableSpeeds = disks.Any(d => d.IsReady && d.DriveType == "本地磁盘" && !d.SpeedAvailable);
         RefreshAggregates();
     }
 
@@ -276,8 +285,8 @@ public class DiskItemViewModel : BaseViewModel
             ReadSpeedMBps = disk.ReadSpeedMBps;
             WriteSpeedMBps = disk.WriteSpeedMBps;
 
-            ReadSpeedText = $"{ReadSpeedMBps:0.0} MB/s";
-            WriteSpeedText = $"{WriteSpeedMBps:0.0} MB/s";
+            ReadSpeedText = disk.SpeedAvailable ? $"{ReadSpeedMBps:0.0} MB/s" : "—";
+            WriteSpeedText = disk.SpeedAvailable ? $"{WriteSpeedMBps:0.0} MB/s" : "—";
             SizeText = $"{DiskViewModel.FormatGb(UsedSpaceGB)} / {DiskViewModel.FormatGb(TotalSizeGB)}";
             FreeSpaceText = $"剩余 {DiskViewModel.FormatGb(FreeSpaceGB)}";
         }
