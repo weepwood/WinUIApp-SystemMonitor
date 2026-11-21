@@ -2,6 +2,7 @@ using System;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -10,6 +11,7 @@ using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using Windows.UI;
 using Windows.UI.ViewManagement;
+using Windows.System;
 
 namespace WinUIApp.Controls;
 
@@ -162,6 +164,7 @@ public sealed class UsageHistoryChart : UserControl
         if (d is not UsageHistoryChart chart)
             return;
 
+        chart.IsTabStop = chart.ShowTooltip;
         if (!chart.ShowTooltip)
             chart.HideHover();
     }
@@ -174,6 +177,11 @@ public sealed class UsageHistoryChart : UserControl
 
     public UsageHistoryChart()
     {
+        IsTabStop = ShowTooltip;
+        AutomationProperties.SetName(this, "使用率趋势图，按左右方向键逐点查看数值");
+        KeyDown += OnChartKeyDown;
+        LostFocus += (_, _) => HideHover();
+
         for (int i = 0; i < GridLineCount; i++)
         {
             var gridLine = new Line
@@ -588,6 +596,40 @@ public sealed class UsageHistoryChart : UserControl
         return _areaBrush;
     }
 
+
+    // 图表不仅支持鼠标悬停：获得焦点后可用方向键逐点读取。
+    // 仅更新十字线与气泡，不会重新生成曲线几何。
+    private void OnChartKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!ShowTooltip || _plotPoints.Length == 0)
+            return;
+
+        int index;
+        switch (e.Key)
+        {
+            case VirtualKey.Left:
+                index = _hoverIndex < 0 ? _plotPoints.Length - 1 : Math.Max(0, _hoverIndex - 1);
+                break;
+            case VirtualKey.Right:
+                index = _hoverIndex < 0 ? 0 : Math.Min(_plotPoints.Length - 1, _hoverIndex + 1);
+                break;
+            case VirtualKey.Home:
+                index = 0;
+                break;
+            case VirtualKey.End:
+                index = _plotPoints.Length - 1;
+                break;
+            case VirtualKey.Escape:
+                HideHover();
+                e.Handled = true;
+                return;
+            default:
+                return;
+        }
+
+        ShowHoverAt(index);
+        e.Handled = true;
+    }
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
