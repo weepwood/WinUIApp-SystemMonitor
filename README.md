@@ -87,7 +87,7 @@ dotnet build WinUIApp.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x
 - CPU、内存、网络、电源状态与本应用自身开销使用**快采样计时器**（采样间隔）；磁盘、静态系统信息与进程列表使用独立的**慢采样计时器**（默认 5 秒）。两个计时器互不阻塞，慢采集不会拉长每秒一次的界面刷新。
 - CPU 使用率与每核心负载来自 `GetSystemTimes` / `NtQuerySystemInformation` 的处理器时间差，当前频率来自 `CallNtPowerInformation`；此前每秒 3 次 WMI 查询已移除，仅在系统调用不可用时回退 WMI。
 - 内存总量与已提交、缓存、内核池来自 `GlobalMemoryStatusEx` / `GetPerformanceInfo`（WMI 仅降级）。
-- 网络速率统计 IPv4 与 IPv6 两份计数器之和，避免只显示 v4 流量。
+- 网络速率使用接口级累计计数（`GetIPStatistics`，含 IPv4 与 IPv6），不再只统计 IPv4 流量。
 - 进程列表在 64 位进程中用一次 `NtQuerySystemInformation(SystemProcessInformation)` 批量取得（名称、工作集、线程数、句柄数、内核/用户态时间），不再为每个 PID 打开句柄；32 位或调用失败时回退 `Process` API。
 - 进程 CPU 占用率来自两次采样之间 `TotalProcessorTime` 的差值除以经过时间与逻辑处理器数量，因此首次采样显示为 0%。进程可能随时退出或拒绝访问，缺失字段按 0 处理。
 - 启用「最小化时暂停采样」后，窗口最小化期间跳过采样；恢复窗口后的下一次刷新继续采集，历史曲线不会补录最小化期间的数据。
