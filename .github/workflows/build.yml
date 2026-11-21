@@ -41,6 +41,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      statuses: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
@@ -91,6 +92,16 @@ jobs:
           }
           $uninstall = Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
           if ($uninstall.ExitCode -ne 0 -or (Test-Path "$dir/WinUIApp.exe")) { throw 'Uninstall failed' }
+      - name: Publish startup failure diagnostic
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP 'SystemMonitor-startup.log'
+          $message = if (Test-Path $path) { (Get-Content $path -Raw) -replace '[\r\n]+', ' ' } else { 'No managed startup trace was written.' }
+          if ($message.Length -gt 120) { $message = $message.Substring(0, 120) }
+          Write-Output "::error file=App.xaml.cs,line=1,title=Startup diagnostic::$message"
+          gh api "repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -f state=failure -f context='WinUI startup diagnostic' -f description="$message" -f target_url="$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | Out-Null
       - name: Release the tested installer
         if: inputs.publish_release == true
         env:
