@@ -74,7 +74,7 @@ jobs:
                   Select-Object -First 4
                 $details = ($events | ForEach-Object { "$($_.ProviderName): $($_.Message -replace '[\r\n]+', ' ')" }) -join ' | '
                 $details = $details -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A' -replace ':', '%3A' -replace ',', '%2C'
-                Write-Output "::error title=WinUI startup failed::Exit code $($app.ExitCode). $details"
+                Write-Output "::error file=.github/workflows/build.yml,line=77,title=WinUI startup diagnostic::Exit code $($app.ExitCode). $details"
                 throw "Startup failed: $($app.ExitCode)"
               }
             } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
