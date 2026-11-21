@@ -317,7 +317,7 @@ public sealed class UsageHistoryChart : UserControl
     {
         double width = ActualWidth;
         double height = ActualHeight;
-        if (width <= 0 || height <= 0)
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
             return;
 
         // 迷你趋势图不显示网格时去掉左侧刻度留白，让曲线铺满卡片宽度。
@@ -328,12 +328,13 @@ public sealed class UsageHistoryChart : UserControl
 
         double chartWidth = width - marginLeft - marginRight;
         double chartHeight = height - marginTop - marginBottom;
-        if (chartWidth <= 0 || chartHeight <= 0)
+        if (!double.IsFinite(chartWidth) || !double.IsFinite(chartHeight) || chartWidth <= 0 || chartHeight <= 0)
             return;
 
-        var clip = new RectangleGeometry { Rect = new Rect(marginLeft, marginTop, chartWidth, chartHeight) };
-        _linePath.Clip = clip;
-        _areaPath.Clip = clip;
+        var clipRect = new Rect(marginLeft, marginTop, chartWidth, chartHeight);
+        // WinUI's clip Geometry is element-owned; do not share one instance across Path elements.
+        _linePath.Clip = new RectangleGeometry { Rect = clipRect };
+        _areaPath.Clip = new RectangleGeometry { Rect = clipRect };
         _endDot.Clip = null;
 
         for (int i = 0; i < GridLineCount; i++)

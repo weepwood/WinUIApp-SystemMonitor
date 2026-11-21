@@ -11,6 +11,11 @@ on:
         description: 'Publish a WinUI 3 x64 installer (e.g. v1.0.0); leave empty for a debug build'
         type: string
         required: false
+      publish_release:
+        description: 'Create the GitHub Release after the installer smoke test (disable for diagnostics)'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -79,6 +84,7 @@ jobs:
           $uninstall = Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
           if ($uninstall.ExitCode -ne 0 -or (Test-Path "$dir/WinUIApp.exe")) { throw 'Uninstall failed' }
       - name: Release the tested installer
+        if: inputs.publish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
