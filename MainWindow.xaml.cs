@@ -353,7 +353,7 @@ namespace WinUIApp
         /// </summary>
         private void ShowPage(Page page)
         {
-            if (ContentFrame.Content == page)
+            if (ReferenceEquals(ContentFrame.Content, page))
             {
                 MotionSettings.PlayPageEntrance(page);
                 return;
