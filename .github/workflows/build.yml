@@ -11,6 +11,11 @@ on:
         description: 'Publish a WinUI 3 x64 installer (e.g. v1.0.0); leave empty for a debug build'
         type: string
         required: false
+      publish_release:
+        description: 'Create the GitHub Release after the installer smoke test (disable for diagnostics)'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -36,7 +41,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-      statuses: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
@@ -58,8 +62,6 @@ jobs:
           if (!(Test-Path $iscc)) { throw 'Inno Setup 6 is required on the Windows runner' }
           & $iscc "/DAppVersion=$($env:RELEASE_TAG.Substring(1))" Packaging/SystemMonitor.iss
       - name: Install and launch the full WinUI app
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $setup = (Resolve-Path "installer/SystemMonitor-$env:RELEASE_TAG-win-x64-setup.exe").Path
           $dir = Join-Path $env:RUNNER_TEMP 'System Monitor smoke test'
@@ -68,8 +70,6 @@ jobs:
           $diagnosticPath = Join-Path $env:RUNNER_TEMP 'SystemMonitor-startup.log'
           Remove-Item $diagnosticPath -Force -ErrorAction SilentlyContinue
           $env:WINUI_STARTUP_LOG = $diagnosticPath
-          $env:WINUI_SKIP_MONITORING = '1'
-          $env:WINUI_SKIP_SET_VIEWMODEL = '1'
           $app = Start-Process "$dir/WinUIApp.exe" -WorkingDirectory $dir -PassThru
           try {
             $deadline = (Get-Date).AddSeconds(60)
@@ -77,15 +77,10 @@ jobs:
               Start-Sleep -Seconds 1
               $app.Refresh()
               if ($app.HasExited) {
-                $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-10) } -ErrorAction SilentlyContinue |
-                  Where-Object { $_.ProviderName -in @('Application Error', '.NET Runtime', 'Windows Error Reporting') } |
-                  Select-Object -First 4
-                $details = ($events | ForEach-Object { "$($_.ProviderName): $($_.Message -replace '[\r\n]+', ' ')" }) -join ' | '
-                $managedDetails = if (Test-Path $diagnosticPath) { Get-Content $diagnosticPath -Raw } else { '' }
-                $diagnostic = "Exit code $($app.ExitCode). $managedDetails $details" -replace '[\r\n]+', ' '
-                $description = if ($diagnostic.Length -gt 140) { $diagnostic.Substring(0, 140) } else { $diagnostic }
-                gh api "repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -f state=failure -f context='WinUI release startup diagnostic' -f description="$description" -f target_url="$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | Out-Null
-                throw "Startup failed: $diagnostic"
+                $trace = if (Test-Path $diagnosticPath) { Get-Content $diagnosticPath -Raw } else { 'No managed startup trace was written.' }
+                $message = "Process exited with code $($app.ExitCode). $trace" -replace '[\r\n]+', ' '
+                Write-Output "::error file=MainWindow.xaml.cs,line=1,title=Smoke test startup trace::$message"
+                throw "Startup failed: $message"
               }
             } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
             if ($app.MainWindowHandle -eq 0) { throw 'No main window appeared' }
@@ -97,6 +92,7 @@ jobs:
           $uninstall = Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
           if ($uninstall.ExitCode -ne 0 -or (Test-Path "$dir/WinUIApp.exe")) { throw 'Uninstall failed' }
       - name: Release the tested installer
+        if: inputs.publish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

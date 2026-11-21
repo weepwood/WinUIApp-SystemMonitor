@@ -11,19 +11,46 @@ namespace WinUIApp
 
         public App()
         {
-            InitializeComponent();
-
-            string? diagnosticPath = Environment.GetEnvironmentVariable("WINUI_STARTUP_LOG");
-            if (!string.IsNullOrWhiteSpace(diagnosticPath))
+            string? path = Environment.GetEnvironmentVariable("WINUI_STARTUP_LOG");
+            if (!string.IsNullOrWhiteSpace(path))
             {
-                AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
-                    WriteStartupDiagnostic(diagnosticPath, eventArgs.ExceptionObject?.ToString() ?? "Unhandled exception");
-                UnhandledException += (_, eventArgs) =>
-                    WriteStartupDiagnostic(diagnosticPath, eventArgs.Exception?.ToString() ?? eventArgs.Message);
+                AppDomain.CurrentDomain.UnhandledException += (_, e) => TraceStartup(path, e.ExceptionObject?.ToString() ?? "Unhandled exception");
+                UnhandledException += (_, e) => TraceStartup(path, e.Exception?.ToString() ?? e.Message);
+                TraceStartup(path, "App constructor: before XAML initialization");
             }
+
+            InitializeComponent();
+            if (!string.IsNullOrWhiteSpace(path))
+                TraceStartup(path, "App constructor: XAML initialized");
         }
 
-        private static void WriteStartupDiagnostic(string path, string message)
+        protected override void OnLaunched(LaunchActivatedEventArgs args)
+        {
+            TraceStartup("OnLaunched: before MainWindow");
+            var mainWindow = new MainWindow();
+            TraceStartup("OnLaunched: MainWindow created");
+
+            // 创建 ViewModel 并启动监测；窗口关闭时由 MainWindow 负责停止与保存。
+            var viewModel = new MainViewModel(mainWindow.DispatcherQueue);
+            TraceStartup("OnLaunched: ViewModel created");
+            mainWindow.SetViewModel(viewModel);
+            TraceStartup("OnLaunched: ViewModel assigned");
+            viewModel.StartMonitoring();
+            TraceStartup("OnLaunched: monitoring started");
+
+            _window = mainWindow;
+            _window.Activate();
+            TraceStartup("OnLaunched: window activated");
+        }
+
+        private static void TraceStartup(string message)
+        {
+            string? path = Environment.GetEnvironmentVariable("WINUI_STARTUP_LOG");
+            if (!string.IsNullOrWhiteSpace(path))
+                TraceStartup(path, message);
+        }
+
+        private static void TraceStartup(string path, string message)
         {
             try
             {
@@ -31,25 +58,8 @@ namespace WinUIApp
             }
             catch (Exception)
             {
-                // Diagnostic logging must never interfere with shutdown.
+                // Startup diagnostics are opt-in and must never affect normal launch.
             }
-        }
-
-        protected override void OnLaunched(LaunchActivatedEventArgs args)
-        {
-            var mainWindow = new MainWindow();
-
-            // 创建 ViewModel 并启动监测；窗口关闭时由 MainWindow 负责停止与保存。
-            var viewModel = new MainViewModel(mainWindow.DispatcherQueue);
-            if (!string.Equals(Environment.GetEnvironmentVariable("WINUI_SKIP_SET_VIEWMODEL"), "1", StringComparison.Ordinal))
-            {
-                mainWindow.SetViewModel(viewModel);
-                if (!string.Equals(Environment.GetEnvironmentVariable("WINUI_SKIP_MONITORING"), "1", StringComparison.Ordinal))
-                    viewModel.StartMonitoring();
-            }
-
-            _window = mainWindow;
-            _window.Activate();
         }
     }
 }

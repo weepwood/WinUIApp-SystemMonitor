@@ -31,9 +31,7 @@ public sealed class ProcessService
     private readonly Dictionary<long, TimeSpan> _nativeCpuTime = new();
     private readonly Dictionary<int, TimeSpan> _legacyCpuTime = new();
     private long _previousTimestamp;
-    // The native SYSTEM_PROCESS_INFORMATION parser is disabled until its per-Windows-build
-    // layout can be validated; the managed fallback avoids unsafe pointer reads at startup.
-    private bool _nativeUnavailable = true;
+    private bool _nativeUnavailable;
 
     public ProcessSnapshot Capture(int topCount = 5)
     {
