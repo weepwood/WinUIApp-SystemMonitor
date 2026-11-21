@@ -27,6 +27,11 @@
                 </controls:PageHeader.Content>
             </controls:PageHeader>
 
+            <InfoBar IsOpen="{Binding Disk.HasUnavailableSpeeds, Mode=OneWay}"
+                     IsClosable="False" Severity="Informational"
+                     Title="磁盘实时速率暂不可用"
+                     Message="Windows 性能计数器未返回有效数据，当前仅显示容量信息。可检查 WMI 与磁盘性能计数器。" />
+
             <!-- 汇总 -->
             <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel Spacing="12">
