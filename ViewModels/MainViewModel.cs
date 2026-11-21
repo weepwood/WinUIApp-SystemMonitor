@@ -217,6 +217,7 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         Processes.SetSearchText(preferences.ProcessFilterText);
         if (preferences.ProcessSortMode is >= 0 and <= 3)
             Processes.SortMode = preferences.ProcessSortMode;
+        Processes.SortDescending = preferences.ProcessSortDescending;
 
         if (_slowTimer != null)
             _slowTimer.Interval = TimeSpan.FromSeconds(_slowIntervalSeconds);
