@@ -68,7 +68,15 @@ jobs:
             do {
               Start-Sleep -Seconds 1
               $app.Refresh()
-              if ($app.HasExited) { throw "Startup failed: $($app.ExitCode)" }
+              if ($app.HasExited) {
+                $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-10) } -ErrorAction SilentlyContinue |
+                  Where-Object { $_.ProviderName -in @('Application Error', '.NET Runtime', 'Windows Error Reporting') } |
+                  Select-Object -First 4
+                $details = ($events | ForEach-Object { "$($_.ProviderName): $($_.Message -replace '[\r\n]+', ' ')" }) -join ' | '
+                $details = $details -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A' -replace ':', '%3A' -replace ',', '%2C'
+                Write-Output "::error title=WinUI startup failed::Exit code $($app.ExitCode). $details"
+                throw "Startup failed: $($app.ExitCode)"
+              }
             } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
             if ($app.MainWindowHandle -eq 0) { throw 'No main window appeared' }
             Start-Sleep -Seconds 5
