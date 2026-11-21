@@ -290,7 +290,6 @@ namespace WinUIApp
                 return;
 
             _preferences.ProcessSortMode = _viewModel.Processes.SortMode;
-            _preferences.ProcessSortDescending = _viewModel.Processes.SortDescending;
             _preferences.ProcessFilterText = _viewModel.Processes.SearchText;
             _preferences.Save();
         }

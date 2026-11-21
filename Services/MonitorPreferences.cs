@@ -11,7 +11,7 @@ namespace WinUIApp.Services;
 /// </summary>
 public sealed class MonitorPreferences
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 3;
 
     private static readonly string FolderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -67,9 +67,6 @@ public sealed class MonitorPreferences
 
     /// <summary>进程页排序方式：0 内存、1 CPU、2 名称、3 PID。</summary>
     public int ProcessSortMode { get; set; }
-
-    /// <summary>进程页排序方向：true 为降序（大 → 小 / Z → A）。</summary>
-    public bool ProcessSortDescending { get; set; } = true;
 
     /// <summary>进程页的搜索关键字，重启后保留。</summary>
     public string ProcessFilterText { get; set; } = string.Empty;

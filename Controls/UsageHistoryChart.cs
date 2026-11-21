@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using Windows.UI;
-using Windows.UI.ViewManagement;
 
 namespace WinUIApp.Controls;
 
@@ -38,7 +37,6 @@ public sealed class UsageHistoryChart : UserControl
     private readonly SolidColorBrush _thresholdBrush = new();
     private readonly SolidColorBrush _lineBrush = new();
     private readonly SolidColorBrush _hoverBrush = new();
-    private AccessibilitySettings? _accessibility;
     private readonly Line _hoverLine = new();
     private readonly Ellipse _hoverDot = new();
     private readonly Border _tooltip = new();
@@ -227,16 +225,6 @@ public sealed class UsageHistoryChart : UserControl
         Content = surface;
         PointerMoved += OnPointerMoved;
         PointerExited += (_, _) => HideHover();
-
-        try
-        {
-            _accessibility = new AccessibilitySettings();
-            _accessibility.HighContrastChanged += OnHighContrastChanged;
-        }
-        catch (Exception)
-        {
-            // 高对比度检测不可用时按普通主题绘制。
-        }
         SizeChanged += (_, _) => UpdateChart();
         Loaded += (_, _) =>
         {
@@ -252,20 +240,8 @@ public sealed class UsageHistoryChart : UserControl
         UpdateThemeBrushes();
     }
 
-    private void OnHighContrastChanged(AccessibilitySettings sender, object args)
-    {
-        UpdateThemeBrushes();
-        UpdateChart();
-    }
-
     private void UpdateThemeBrushes()
     {
-        if (_accessibility?.HighContrast == true)
-        {
-            UpdateHighContrastBrushes();
-            return;
-        }
-
         bool dark = ActualTheme == ElementTheme.Dark;
         _gridBrush.Color = dark ? Color.FromArgb(26, 255, 255, 255) : Color.FromArgb(20, 0, 0, 0);
         _labelBrush.Color = dark ? Color.FromArgb(138, 255, 255, 255) : Color.FromArgb(138, 0, 0, 0);
@@ -281,37 +257,6 @@ public sealed class UsageHistoryChart : UserControl
         _hoverDot.Stroke = new SolidColorBrush(
             dark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 255, 255, 255));
     }
-
-    /// <summary>
-    /// 高对比度主题下改用系统色：硬编码的灰色网格在纯黑背景上几乎不可见。
-    /// </summary>
-    private void UpdateHighContrastBrushes()
-    {
-        Color text = FindSystemColor("SystemColorWindowTextColor", Colors.White);
-        Color window = FindSystemColor("SystemColorWindowColor", Colors.Black);
-        Color highlight = FindSystemColor("SystemColorHighlightColor", text);
-
-        _gridBrush.Color = WithAlpha(text, 110);
-        _labelBrush.Color = text;
-        _thresholdBrush.Color = highlight;
-        _hoverBrush.Color = WithAlpha(text, 190);
-
-        _tooltip.Background = new SolidColorBrush(window);
-        _tooltip.BorderBrush = new SolidColorBrush(text);
-        _tooltipText.Foreground = new SolidColorBrush(text);
-        _hoverDot.Stroke = new SolidColorBrush(window);
-    }
-
-    private static Color FindSystemColor(string key, Color fallback)
-    {
-        var resources = Application.Current?.Resources;
-        if (resources != null && resources.TryGetValue(key, out object value) && value is Color color)
-            return color;
-
-        return fallback;
-    }
-
-    private static Color WithAlpha(Color color, byte alpha) => Color.FromArgb(alpha, color.R, color.G, color.B);
 
     private void UpdateChart()
     {

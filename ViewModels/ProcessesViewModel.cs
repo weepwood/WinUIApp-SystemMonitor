@@ -11,25 +11,19 @@ namespace WinUIApp.ViewModels;
 
 /// <summary>
 /// 进程页状态：完整快照、筛选、排序与选中进程详情。
-/// 集合按 PID 复用实例；内存 / CPU 排序使用带滞回的「惰性排序」，
-/// 只有明显超过相邻项时才换位，避免列表每秒跳动。
+/// 集合按 PID 复用实例并就地移动，避免每次采样重建全部行。
 /// </summary>
 public sealed class ProcessesViewModel : BaseViewModel
 {
-    private const double MemorySwapMargin = 1.15;   // 大出 15% 才上移
-    private const double CpuSwapMargin = 1.5;       // 高出 1.5 个百分点才上移
-
     private IReadOnlyList<ProcessInfo> _snapshot = Array.Empty<ProcessInfo>();
     private long _totalWorkingSetBytes;
     private string _searchText = string.Empty;
     private int _sortMode;
-    private bool _sortDescending = true;
     private int _slowIntervalSeconds = 5;
     private string _visibleSummary = "等待首次采样";
-    private string _actionStatusText = string.Empty;
+    private string _copyStatusText = string.Empty;
     private ProcessItemViewModel? _selectedItem;
     private int _detailsGeneration;
-    private bool _forceReorder;
 
     private string _detailsPath = "—";
     private string _detailsStartText = "—";
@@ -43,10 +37,7 @@ public sealed class ProcessesViewModel : BaseViewModel
         set
         {
             if (SetProperty(ref _searchText, value))
-            {
-                _forceReorder = true;
                 Rebuild();
-            }
         }
     }
 
@@ -56,30 +47,13 @@ public sealed class ProcessesViewModel : BaseViewModel
             SearchText = text;
     }
 
-    /// <summary>0 内存、1 CPU、2 名称、3 PID。</summary>
     public int SortMode
     {
         get => _sortMode;
         set
         {
             if (SetProperty(ref _sortMode, value))
-            {
-                _forceReorder = true;
                 Rebuild();
-            }
-        }
-    }
-
-    public bool SortDescending
-    {
-        get => _sortDescending;
-        set
-        {
-            if (SetProperty(ref _sortDescending, value))
-            {
-                _forceReorder = true;
-                Rebuild();
-            }
         }
     }
 
@@ -89,13 +63,13 @@ public sealed class ProcessesViewModel : BaseViewModel
         private set => SetProperty(ref _visibleSummary, value);
     }
 
-    public string ActionStatusText
+    public string CopyStatusText
     {
-        get => _actionStatusText;
-        private set => SetProperty(ref _actionStatusText, value);
+        get => _copyStatusText;
+        private set => SetProperty(ref _copyStatusText, value);
     }
 
-    public void NotifyActionStatus(string text) => ActionStatusText = text;
+    public void SetCopyStatus(string text) => CopyStatusText = text;
 
     public ProcessItemViewModel? SelectedItem
     {
@@ -105,7 +79,6 @@ public sealed class ProcessesViewModel : BaseViewModel
             if (!SetProperty(ref _selectedItem, value))
                 return;
 
-            OnPropertyChanged(nameof(HasSelection));
             OnPropertyChanged(nameof(SelectedTitle));
             OnPropertyChanged(nameof(SelectedPidText));
             OnPropertyChanged(nameof(DetailsCpuText));
@@ -115,8 +88,6 @@ public sealed class ProcessesViewModel : BaseViewModel
             _ = LoadDetailsAsync(value);
         }
     }
-
-    public bool HasSelection => _selectedItem != null;
 
     public string SelectedTitle => _selectedItem?.Name ?? "未选择进程";
     public string SelectedPidText => _selectedItem is null ? "PID —" : $"PID {_selectedItem.Id}";
@@ -155,18 +126,6 @@ public sealed class ProcessesViewModel : BaseViewModel
         private set => SetProperty(ref _detailsPriorityText, value);
     }
 
-    /// <summary>详情里的路径是否可用于「打开位置 / 复制路径」。</summary>
-    public bool TryGetSelectedPath(out string path)
-    {
-        path = _detailsPath;
-        return _selectedItem != null
-            && !string.IsNullOrWhiteSpace(path)
-            && path != "—"
-            && path != "正在读取…"
-            && path != "不可访问"
-            && path != "进程已退出";
-    }
-
     public string Subtitle => _snapshot.Count == 0
         ? $"每 {_slowIntervalSeconds} 秒更新进程与磁盘信息"
         : $"{_snapshot.Count} 个进程 · 合计 {ProcessInfo.FormatBytes(_totalWorkingSetBytes)} · 每 {_slowIntervalSeconds} 秒更新";
@@ -184,11 +143,9 @@ public sealed class ProcessesViewModel : BaseViewModel
     {
         _snapshot = snapshot.Processes;
         _totalWorkingSetBytes = snapshot.TotalWorkingSetBytes;
-        ActionStatusText = string.Empty;
+        CopyStatusText = string.Empty;
         Rebuild();
     }
-
-    private bool UsesLazyOrder => _sortMode is 0 or 1;
 
     private void Rebuild()
     {
@@ -198,53 +155,16 @@ public sealed class ProcessesViewModel : BaseViewModel
         if (search.Length > 0)
             query = query.Where(p => p.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
 
-        var filtered = query.ToList();
-        var index = new Dictionary<int, ProcessInfo>(filtered.Count);
-        foreach (var process in filtered)
-            index[process.Id] = process;
-
-        // 1. 保留仍然存在（且通过筛选）的行，同时刷新数值。
-        var ordered = new List<ProcessItemViewModel>(filtered.Count);
-        var present = new HashSet<int>(Items.Count);
-        foreach (var item in Items)
+        query = _sortMode switch
         {
-            if (!index.TryGetValue(item.Id, out var info))
-                continue;
+            1 => query.OrderByDescending(p => p.CpuPercent).ThenByDescending(p => p.WorkingSetBytes),
+            2 => query.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase),
+            3 => query.OrderBy(p => p.Id),
+            _ => query.OrderByDescending(p => p.WorkingSetBytes).ThenBy(p => p.Id),
+        };
 
-            item.Update(info);
-            ordered.Add(item);
-            present.Add(item.Id);
-        }
-
-        // 2. 新出现的进程按精确顺序插入到大致位置，避免从末尾慢慢爬升。
-        foreach (var process in filtered)
-        {
-            if (present.Contains(process.Id))
-                continue;
-
-            var item = new ProcessItemViewModel(process);
-            ordered.Insert(FindInsertIndex(ordered, item), item);
-        }
-
-        // 3. 内存 / CPU 用带滞回的插入排序，其余模式（以及切换排序的那一刻）精确排序。
-        if (UsesLazyOrder && !_forceReorder)
-            StabilizeOrder(ordered);
-        else
-            ordered.Sort((a, b) => Compare(a, b));
-
-        _forceReorder = false;
-
-        SyncItems(ordered);
-
-        long max = 0;
-        foreach (var process in filtered)
-        {
-            if (process.WorkingSetBytes > max)
-                max = process.WorkingSetBytes;
-        }
-
-        foreach (var item in Items)
-            item.SetMemoryShare(max);
+        var desired = query.ToList();
+        Reconcile(desired);
 
         VisibleSummary = search.Length > 0
             ? $"筛选 {Items.Count} / {_snapshot.Count} 个进程"
@@ -258,95 +178,44 @@ public sealed class ProcessesViewModel : BaseViewModel
         OnPropertyChanged(nameof(Subtitle));
     }
 
-    /// <summary>比较：仅在「升序」语义下返回负值表示 a 排在 b 之前。</summary>
-    private int Compare(ProcessItemViewModel a, ProcessItemViewModel b)
+    private void Reconcile(IReadOnlyList<ProcessInfo> desired)
     {
-        int result = _sortMode switch
-        {
-            1 => a.CpuPercent.CompareTo(b.CpuPercent),
-            2 => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase),
-            3 => a.Id.CompareTo(b.Id),
-            _ => a.MemoryBytes.CompareTo(b.MemoryBytes),
-        };
+        var existing = new Dictionary<int, ProcessItemViewModel>(Items.Count);
+        foreach (var item in Items)
+            existing[item.Id] = item;
 
-        return _sortDescending ? -result : result;
-    }
-
-    private int FindInsertIndex(List<ProcessItemViewModel> ordered, ProcessItemViewModel item)
-    {
-        int low = 0;
-        int high = ordered.Count;
-        while (low < high)
-        {
-            int mid = (low + high) / 2;
-            if (Compare(item, ordered[mid]) < 0)
-                high = mid;
-            else
-                low = mid + 1;
-        }
-
-        return low;
-    }
-
-    /// <summary>
-    /// 带滞回的插入排序：只有当某一项按排序键明显优于前一项时才换位，
-    /// 因此相邻项的轻微波动不会造成行跳动，而新进程仍能一步到位。
-    /// </summary>
-    private void StabilizeOrder(List<ProcessItemViewModel> ordered)
-    {
-        for (int i = 1; i < ordered.Count; i++)
-        {
-            var item = ordered[i];
-            int j = i - 1;
-            while (j >= 0 && ShouldMoveAhead(item, ordered[j]))
-            {
-                ordered[j + 1] = ordered[j];
-                j--;
-            }
-
-            ordered[j + 1] = item;
-        }
-    }
-
-    private bool ShouldMoveAhead(ProcessItemViewModel item, ProcessItemViewModel other)
-    {
-        if (_sortMode == 0)
-        {
-            return _sortDescending
-                ? item.MemoryBytes > other.MemoryBytes * MemorySwapMargin
-                : item.MemoryBytes * MemorySwapMargin < other.MemoryBytes;
-        }
-
-        if (_sortMode == 1)
-        {
-            return _sortDescending
-                ? item.CpuPercent > other.CpuPercent + CpuSwapMargin
-                : item.CpuPercent + CpuSwapMargin < other.CpuPercent;
-        }
-
-        return Compare(item, other) < 0;
-    }
-
-    private void SyncItems(List<ProcessItemViewModel> ordered)
-    {
-        var keep = new HashSet<ProcessItemViewModel>(ordered);
-
+        var desiredIds = new HashSet<int>(desired.Select(p => p.Id));
         for (int i = Items.Count - 1; i >= 0; i--)
         {
-            if (!keep.Contains(Items[i]))
+            if (!desiredIds.Contains(Items[i].Id))
                 Items.RemoveAt(i);
         }
 
-        for (int i = 0; i < ordered.Count; i++)
+        for (int i = 0; i < desired.Count; i++)
         {
-            var item = ordered[i];
-            int current = Items.IndexOf(item);
-
-            if (current < 0)
-                Items.Insert(i, item);
-            else if (current != i)
-                Items.Move(current, i);
+            var info = desired[i];
+            if (existing.TryGetValue(info.Id, out var item))
+            {
+                item.Update(info);
+                int currentIndex = Items.IndexOf(item);
+                if (currentIndex >= 0 && currentIndex != i)
+                    Items.Move(currentIndex, i);
+            }
+            else
+            {
+                Items.Insert(i, new ProcessItemViewModel(info));
+            }
         }
+
+        long max = 0;
+        foreach (var process in desired)
+        {
+            if (process.WorkingSetBytes > max)
+                max = process.WorkingSetBytes;
+        }
+
+        foreach (var item in Items)
+            item.SetMemoryShare(max);
     }
 
     private async Task LoadDetailsAsync(ProcessItemViewModel? item)
