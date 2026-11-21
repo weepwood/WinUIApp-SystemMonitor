@@ -41,7 +41,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-      statuses: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
@@ -68,21 +67,13 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP 'System Monitor smoke test'
           $install = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=`"$dir`"" -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
-          $diagnosticPath = Join-Path $env:RUNNER_TEMP 'SystemMonitor-startup.log'
-          Remove-Item $diagnosticPath -Force -ErrorAction SilentlyContinue
-          $env:WINUI_STARTUP_LOG = $diagnosticPath
           $app = Start-Process "$dir/WinUIApp.exe" -WorkingDirectory $dir -PassThru
           try {
             $deadline = (Get-Date).AddSeconds(60)
             do {
               Start-Sleep -Seconds 1
               $app.Refresh()
-              if ($app.HasExited) {
-                $trace = if (Test-Path $diagnosticPath) { Get-Content $diagnosticPath -Raw } else { 'No managed startup trace was written.' }
-                $message = "Process exited with code $($app.ExitCode). $trace" -replace '[\r\n]+', ' '
-                Write-Output "::error file=MainWindow.xaml.cs,line=1,title=Smoke test startup trace::$message"
-                throw "Startup failed: $message"
-              }
+              if ($app.HasExited) { throw "Startup failed: $($app.ExitCode)" }
             } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
             if ($app.MainWindowHandle -eq 0) { throw 'No main window appeared' }
             Start-Sleep -Seconds 5
@@ -92,16 +83,6 @@ jobs:
           }
           $uninstall = Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
           if ($uninstall.ExitCode -ne 0 -or (Test-Path "$dir/WinUIApp.exe")) { throw 'Uninstall failed' }
-      - name: Publish startup failure diagnostic
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $path = Join-Path $env:RUNNER_TEMP 'SystemMonitor-startup.log'
-          $message = if (Test-Path $path) { (Get-Content $path -Raw) -replace '[\r\n]+', ' ' } else { 'No managed startup trace was written.' }
-          if ($message.Length -gt 4000) { $message = $message.Substring(0, 4000) }
-          Write-Output "::error file=App.xaml.cs,line=1,title=Startup diagnostic::$message"
-          gh api "repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -f state=failure -f context='WinUI startup diagnostic' -f description="$message" -f target_url="$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | Out-Null
       - name: Release the tested installer
         if: inputs.publish_release == true
         env:

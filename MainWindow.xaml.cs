@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -59,23 +58,16 @@ namespace WinUIApp
 
         public void SetViewModel(MainViewModel viewModel)
         {
-            TraceStartup("SetViewModel: enter");
             _viewModel = viewModel;
             MainNavigationView.DataContext = viewModel;
-            TraceStartup("SetViewModel: navigation DataContext set");
 
             // 为所有页面设置 DataContext
             foreach (var page in _pages.Values)
-            {
-                TraceStartup($"SetViewModel: page DataContext {page.GetType().Name}");
                 page.DataContext = viewModel;
-            }
 
             if (_settingsPage != null)
             {
-                TraceStartup("SetViewModel: SettingsPage.Initialize begin");
                 _settingsPage.Initialize(_preferences);
-                TraceStartup("SetViewModel: SettingsPage.Initialize complete");
                 _settingsPage.PreferencesChanged += OnPreferencesChanged;
             }
 
@@ -88,32 +80,11 @@ namespace WinUIApp
                 && AppWindow.Presenter is OverlappedPresenter presenter
                 && presenter.State == OverlappedPresenterState.Minimized;
 
-            TraceStartup("SetViewModel: ApplyPreferences begin");
             ApplyPreferences(_preferences);
-            TraceStartup("SetViewModel: ApplyPreferences complete");
 
             // 默认导航到总览页
-            TraceStartup("SetViewModel: ShowPage begin");
             ShowPage(_pages["overview"]);
-            TraceStartup("SetViewModel: ShowPage complete");
             MainNavigationView.SelectedItem = NavOverview;
-            TraceStartup("SetViewModel: complete");
-        }
-
-        private static void TraceStartup(string message)
-        {
-            string? path = Environment.GetEnvironmentVariable("WINUI_STARTUP_LOG");
-            if (string.IsNullOrWhiteSpace(path))
-                return;
-
-            try
-            {
-                File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
-            }
-            catch (Exception)
-            {
-                // Startup diagnostics are opt-in and must never affect normal launch.
-            }
         }
 
         // OemComma 无法在 XAML 中解析为 VirtualKey，改用代码注册 Ctrl+,。
