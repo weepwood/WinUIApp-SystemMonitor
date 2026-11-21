@@ -16,7 +16,8 @@ public static class PageSizing
     /// <summary>低于此宽度时使用最紧凑留白。</summary>
     public const double TightWidth = 440;
 
-    public static void Attach(FrameworkElement source, FrameworkElement content)
+    /// <summary>为页面内容容器挂上按宽度变化的留白。</summary>
+    public static void Attach(FrameworkElement source, Panel content)
     {
         if (source is null || content is null)
             return;
@@ -25,7 +26,7 @@ public static class PageSizing
         content.Loaded += (_, _) => Apply(content, source.ActualWidth);
     }
 
-    private static void Apply(FrameworkElement content, double width)
+    private static void Apply(Panel content, double width)
     {
         if (!double.IsFinite(width) || width <= 0)
             return;

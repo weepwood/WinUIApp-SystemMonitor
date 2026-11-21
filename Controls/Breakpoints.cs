@@ -29,8 +29,15 @@ public static class Breakpoints
         if (!double.IsFinite(width) || width <= 0)
             return 0;
 
-        double padding = element.Padding.Left + element.Padding.Right;
-        double content = width - padding;
+        // FrameworkElement 没有 Padding；只有 Control / Border / Panel 等子类型才有。
+        Thickness padding = element switch
+        {
+            Control control => control.Padding,
+            Border border => border.Padding,
+            _ => default,
+        };
+
+        double content = width - padding.Left - padding.Right;
         return content > 0 ? content : width;
     }
 

@@ -61,7 +61,7 @@ public sealed class UsageHistoryChart : UserControl
     private bool _renderedThreshold;
     private double _renderedThresholdValue = -1;
     private Color _renderedAccent;
-    private LinearGradientBrush? _areaBrush;
+    private Brush? _areaBrush;
     private Color _areaBrushColor;
     private RectangleGeometry? _clipGeometry;
     private Rect _clipRect;
