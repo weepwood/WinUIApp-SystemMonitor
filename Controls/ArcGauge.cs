@@ -1,5 +1,4 @@
 using System;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -25,16 +24,9 @@ public sealed class ArcGauge : UserControl
     private readonly SolidColorBrush _trackBrush = new();
     private readonly SolidColorBrush _valueBrush = new();
 
-    private double _displayedFraction;
-    private double _targetFraction;
-    private double _animationFrom;
-    private DateTime _animationStart;
-    private DispatcherQueueTimer? _animationTimer;
-    private bool _isAnimating;
-
     public static readonly DependencyProperty PercentProperty = DependencyProperty.Register(
         nameof(Percent), typeof(float), typeof(ArcGauge),
-        new PropertyMetadata(0f, OnPercentChanged));
+        new PropertyMetadata(0f, OnVisualChanged));
 
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
         nameof(Value), typeof(string), typeof(ArcGauge),
@@ -89,12 +81,6 @@ public sealed class ArcGauge : UserControl
             gauge.UpdateGauge();
     }
 
-    private static void OnPercentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is ArcGauge gauge)
-            gauge.AnimateToTarget();
-    }
-
     private static void OnValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ArcGauge gauge)
@@ -132,19 +118,12 @@ public sealed class ArcGauge : UserControl
         _rootGrid.Children.Add(_captionText);
 
         Content = _rootGrid;
-        _animationTimer = DispatcherQueue.GetForCurrentThread()?.CreateTimer();
-        if (_animationTimer != null)
-        {
-            _animationTimer.Interval = TimeSpan.FromMilliseconds(16);
-            _animationTimer.Tick += OnAnimationTick;
-        }
         SizeChanged += (_, _) => UpdateGauge();
         Loaded += (_, _) =>
         {
             UpdateThemeBrushes();
             UpdateGauge();
         };
-        Unloaded += (_, _) => StopAnimation();
         ActualThemeChanged += (_, _) =>
         {
             UpdateThemeBrushes();
@@ -158,69 +137,6 @@ public sealed class ArcGauge : UserControl
     {
         bool dark = ActualTheme == ElementTheme.Dark;
         _trackBrush.Color = dark ? Color.FromArgb(46, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
-    }
-
-    /// <summary>
-    /// 把填充比例平滑过渡到目标值：300 ms 减速曲线，节拍内不产生跳变。
-    /// 系统或用户关闭动画时直接落位，不做任何过渡。
-    /// </summary>
-    private void AnimateToTarget()
-    {
-        _targetFraction = Math.Clamp(Percent / 100.0, 0.0, 1.0);
-
-        if (!MotionSettings.IsMotionEnabled)
-        {
-            StopAnimation();
-            _displayedFraction = _targetFraction;
-            UpdateGauge();
-            return;
-        }
-
-        _animationFrom = _displayedFraction;
-        _animationStart = DateTime.MinValue;
-
-        if (_animationTimer == null)
-        {
-            _displayedFraction = _targetFraction;
-            UpdateGauge();
-            return;
-        }
-
-        if (!_isAnimating)
-        {
-            _isAnimating = true;
-            _animationTimer.Start();
-        }
-    }
-
-    private void OnAnimationTick(DispatcherQueueTimer sender, object args)
-    {
-        DateTime now = DateTime.UtcNow;
-        if (_animationStart == DateTime.MinValue)
-            _animationStart = now;
-
-        double elapsed = (now - _animationStart).TotalMilliseconds;
-        double progress = Math.Clamp(elapsed / MotionSettings.SlowMs, 0.0, 1.0);
-        double eased = 1.0 - Math.Pow(1.0 - progress, 3.0);
-
-        _displayedFraction = _animationFrom + (_targetFraction - _animationFrom) * eased;
-        UpdateGauge();
-
-        if (progress >= 1.0)
-        {
-            _displayedFraction = _targetFraction;
-            StopAnimation();
-            UpdateGauge();
-        }
-    }
-
-    private void StopAnimation()
-    {
-        if (!_isAnimating)
-            return;
-
-        _animationTimer?.Stop();
-        _isAnimating = false;
     }
 
     private void UpdateGauge()
@@ -246,7 +162,7 @@ public sealed class ArcGauge : UserControl
         _trackArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);
         _trackArc.StrokeThickness = strokeWidth;
 
-        double pct = _displayedFraction;
+        double pct = Math.Clamp(Percent / 100.0, 0.0, 1.0);
         double fillSweep = sweepAngleRad * pct;
         _valueArc.Data = fillSweep > 0.0001
             ? CreateArcGeometry(centerX, centerY, radius, startAngleRad, fillSweep)

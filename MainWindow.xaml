@@ -32,13 +32,19 @@
         <!-- 自定义标题栏，Mica 背景可透出 -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48" Padding="16,0,160,0">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <Border Width="22" Height="22" CornerRadius="6"
-                        Background="{ThemeResource AccentFillColorDefaultBrush}">
-                    <FontIcon Glyph="&#xE9D9;" FontSize="11"
-                              Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                <Border Width="22" Height="22" CornerRadius="6">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FF60CDFF" Offset="0" />
+                            <GradientStop Color="#FFC0A8FF" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <FontIcon Glyph="&#xE9D9;" FontSize="11" Foreground="White"
                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <TextBlock Text="系统监测" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="System Monitor" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
             </StackPanel>
         </Grid>
 

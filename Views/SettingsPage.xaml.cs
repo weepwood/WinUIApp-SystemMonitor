@@ -30,7 +30,6 @@ public sealed partial class SettingsPage : Page
 
         SelectTag(ThemeSelector, preferences.Theme);
         SelectTag(BackdropSelector, preferences.Backdrop);
-        SelectTag(MotionSelector, preferences.MotionMode);
         SelectTag(IntervalSelector, preferences.IntervalSeconds.ToString());
         SelectTag(CapacitySelector, preferences.HistoryCapacity.ToString());
         SelectTag(ProcessCountSelector, preferences.TopProcessCount.ToString());
@@ -102,7 +101,6 @@ public sealed partial class SettingsPage : Page
 
         _preferences.Theme = GetTag(ThemeSelector, "System");
         _preferences.Backdrop = GetTag(BackdropSelector, "Mica");
-        _preferences.MotionMode = GetTag(MotionSelector, "System");
         _preferences.IntervalSeconds = int.TryParse(GetTag(IntervalSelector, "1"), out int seconds) ? seconds : 1;
         _preferences.HistoryCapacity = int.TryParse(GetTag(CapacitySelector, "60"), out int capacity) ? capacity : 60;
         _preferences.TopProcessCount = int.TryParse(GetTag(ProcessCountSelector, "5"), out int processCount) ? processCount : 5;

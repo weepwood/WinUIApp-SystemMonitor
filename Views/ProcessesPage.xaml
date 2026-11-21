@@ -113,13 +113,6 @@
                               SelectionMode="Single"
                               Padding="4,0,4,8"
                               AutomationProperties.Name="进程列表">
-                        <ListView.ItemContainerTransitions>
-                            <TransitionCollection>
-                                <!-- 排序 / 筛选导致的行位移与增删：内建过渡，随「显示动画」自动降级。 -->
-                                <AddDeleteThemeTransition />
-                                <RepositionThemeTransition IsStaggeringEnabled="False" />
-                            </TransitionCollection>
-                        </ListView.ItemContainerTransitions>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />

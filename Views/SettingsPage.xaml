@@ -39,15 +39,6 @@
                 </ComboBox>
             </controls:SettingsCard>
 
-            <controls:SettingsCard Style="{StaticResource SettingsCardStyle}" Icon="&#xE895;" Header="动画效果"
-                                   Description="页面切换与仪表盘的入场过渡。跟随系统时会自动尊重「显示动画」辅助功能设置。">
-                <ComboBox x:Name="MotionSelector" MinWidth="150" SelectionChanged="OnSelectionChanged">
-                    <ComboBoxItem Tag="System" Content="跟随系统" />
-                    <ComboBoxItem Tag="Full" Content="始终开启" />
-                    <ComboBoxItem Tag="Off" Content="关闭" />
-                </ComboBox>
-            </controls:SettingsCard>
-
             <!-- 窗口 -->
             <TextBlock Text="窗口" Style="{StaticResource SectionHeaderTextBlockStyle}" Margin="4,16,4,2" />
 
