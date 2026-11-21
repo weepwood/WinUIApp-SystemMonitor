@@ -1,6 +1,4 @@
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using System;
 using WinUIApp.ViewModels;
 
 namespace WinUIApp
@@ -18,16 +16,10 @@ namespace WinUIApp
         {
             var mainWindow = new MainWindow();
 
-            // 创建 ViewModel 并启动监测
+            // 创建 ViewModel 并启动监测；窗口关闭时由 MainWindow 负责停止与保存。
             var viewModel = new MainViewModel(mainWindow.DispatcherQueue);
             mainWindow.SetViewModel(viewModel);
             viewModel.StartMonitoring();
-
-            // 窗口关闭时停止监测
-            mainWindow.Closed += (s, e) =>
-            {
-                viewModel.Dispose();
-            };
 
             _window = mainWindow;
             _window.Activate();

@@ -14,83 +14,166 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <NavigationView x:Name="MainNavigationView"
-                    PaneDisplayMode="Auto"
-                    OpenPaneLength="200" PaneTitle="系统监测"
-                    IsBackButtonVisible="Collapsed"
-                    IsBackEnabled="False"
-                    IsSettingsVisible="True"
-                    SelectionChanged="OnNavigationSelectionChanged">
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="F5" Invoked="OnRefreshAccelerator" />
+            <KeyboardAccelerator Key="P" Modifiers="Control" Invoked="OnToggleMonitoringAccelerator" />
+        </Grid.KeyboardAccelerators>
 
-        <NavigationView.MenuItems>
-            <NavigationViewItem x:Name="NavOverview" Content="总览" Tag="overview">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE80F;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NavCpu" Content="CPU" Tag="cpu">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE950;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NavMemory" Content="内存" Tag="memory">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE9D2;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NavDisk" Content="磁盘" Tag="disk">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xEDA2;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NavNetwork" Content="网络" Tag="network">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE774;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NavSystemInfo" Content="系统信息" Tag="system">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE946;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-        </NavigationView.MenuItems>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+        <!-- 纯色材质时的回退背景 -->
+        <Border x:Name="SolidBackground" Grid.RowSpan="2" Visibility="Collapsed"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
 
-            <!-- Compact toolbar remains visible while browsing monitoring pages. -->
-            <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="0,0,0,1" Padding="20,10">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Spacing="2" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding StatusText}" FontSize="13" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding LastUpdatedText}" FontSize="11"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
-                                VerticalAlignment="Center">
-                        <Button x:Name="MonitoringToggleButton" Content="暂停"
-                                Click="OnToggleMonitoringClicked"
-                                AutomationProperties.Name="暂停或恢复监控" />
-                        <Button Click="OnOpenSettings" ToolTipService.ToolTip="监测偏好" AutomationProperties.Name="打开监测偏好">
-                            <FontIcon Glyph="&#xE713;" FontSize="16" />
-                        </Button>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Frame x:Name="ContentFrame" Grid.Row="1" Padding="0" />
+        <!-- 自定义标题栏，Mica 背景可透出 -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48" Padding="16,0,160,0">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Width="22" Height="22" CornerRadius="6">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FF60CDFF" Offset="0" />
+                            <GradientStop Color="#FFC0A8FF" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <FontIcon Glyph="&#xE9D9;" FontSize="11" Foreground="White"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="系统监测" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="System Monitor" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+            </StackPanel>
         </Grid>
 
-    </NavigationView>
+        <NavigationView x:Name="MainNavigationView"
+                        Grid.Row="1"
+                        PaneDisplayMode="Auto"
+                        OpenPaneLength="224"
+                        CompactPaneLength="52"
+                        ExpandedModeThresholdWidth="920"
+                        IsBackButtonVisible="Collapsed"
+                        IsBackEnabled="False"
+                        IsSettingsVisible="True"
+                        IsTitleBarAutoPaddingEnabled="False"
+                        SelectionChanged="OnNavigationSelectionChanged">
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavOverview" Content="总览" Tag="overview">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavCpu" Content="CPU" Tag="cpu">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE950;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavMemory" Content="内存" Tag="memory">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavDisk" Content="磁盘" Tag="disk">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEDA2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavNetwork" Content="网络" Tag="network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE774;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavSystemInfo" Content="系统信息" Tag="system">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <NavigationView.Content>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 紧凑命令条 -->
+                    <Border Grid.Row="0"
+                            Background="{ThemeResource NavHeaderBackgroundBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="20,12,20,10">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Width="8" Height="8" VerticalAlignment="Center">
+                                        <Ellipse Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                 Opacity="{Binding MonitoringOpacity}" />
+                                        <Ellipse Fill="{ThemeResource SystemFillColorCautionBrush}"
+                                                 Opacity="{Binding PausedOpacity}" />
+                                    </Grid>
+                                    <TextBlock Grid.Column="1" Text="{Binding StatusText}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <Border Grid.Column="2" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding IntervalText}" FontSize="11"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </Border>
+                                </Grid>
+                                <TextBlock Text="{Binding LastUpdatedText}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <Button Click="OnRefreshNowClicked"
+                                        ToolTipService.ToolTip="立即刷新 (F5)"
+                                        AutomationProperties.Name="立即刷新监测数据">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                                </Button>
+                                <Button Click="OnToggleMonitoringClicked"
+                                        ToolTipService.ToolTip="暂停或恢复监测 (Ctrl+P)"
+                                        AutomationProperties.Name="暂停或恢复监测">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="{Binding MonitoringActionGlyph}" FontSize="14" />
+                                        <TextBlock Text="{Binding MonitoringActionText}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="OnOpenSettings" ToolTipService.ToolTip="设置 (Ctrl+,)"
+                                        AutomationProperties.Name="打开设置">
+                                    <FontIcon Glyph="&#xE713;" FontSize="14" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <InfoBar Grid.Row="1" Margin="20,10,20,0"
+                             IsOpen="{Binding IsAlertOpen, Mode=TwoWay}"
+                             Severity="Warning"
+                             Title="{Binding AlertTitle}"
+                             Message="{Binding AlertMessage}" />
+
+                    <Frame x:Name="ContentFrame" Grid.Row="2" Padding="0" />
+                </Grid>
+            </NavigationView.Content>
+        </NavigationView>
+    </Grid>
 </Window>

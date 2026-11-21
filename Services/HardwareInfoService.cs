@@ -82,12 +82,19 @@ public static class HardwareInfoService
 
     public static string FormatSpeed(double mbps)
     {
+        var (value, unit) = FormatSpeedParts(mbps);
+        return $"{value} {unit}";
+    }
+
+    /// <summary>把速率拆分为数值与单位，便于在界面中用不同的字号排版。</summary>
+    public static (string Value, string Unit) FormatSpeedParts(double mbps)
+    {
         if (mbps >= 1000)
-            return $"{mbps / 1000:0.##} Gbps";
+            return ($"{mbps / 1000:0.##}", "Gbps");
         if (mbps >= 1)
-            return $"{mbps:0.##} Mbps";
+            return ($"{mbps:0.##}", "Mbps");
         if (mbps >= 0.001)
-            return $"{mbps * 1000:0.##} Kbps";
-        return "0 bps";
+            return ($"{mbps * 1000:0.##}", "Kbps");
+        return ("0", "bps");
     }
 }

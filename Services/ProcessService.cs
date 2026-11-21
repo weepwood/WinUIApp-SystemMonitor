@@ -10,7 +10,7 @@ public static class ProcessService
 {
     // One enumeration supplies both the totals and the ranking. A process may exit
     // or deny access between any two reads; don't discard the rest of the sample.
-    public static void Sample(SystemInfo info)
+    public static void Sample(SystemInfo info, int topCount = 5)
     {
         var rows = new List<ProcessMemoryInfo>();
         var processes = Process.GetProcesses();
@@ -25,6 +25,7 @@ public static class ProcessService
                 catch (Exception) { }
             }
         }
-        info.TopProcesses = rows.OrderByDescending(p => p.WorkingSetBytes).ThenBy(p => p.Id).Take(5).ToArray();
+        int count = Math.Clamp(topCount, 1, 30);
+        info.TopProcesses = rows.OrderByDescending(p => p.WorkingSetBytes).ThenBy(p => p.Id).Take(count).ToArray();
     }
 }

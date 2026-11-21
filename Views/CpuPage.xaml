@@ -6,95 +6,118 @@
     xmlns:controls="using:WinUIApp.Controls"
     xmlns:vm="using:WinUIApp.ViewModels">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="24" Spacing="16">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      HorizontalContentAlignment="Stretch">
+        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
 
-            <TextBlock Text="CPU 详细监测" Style="{StaticResource TitleTextBlockStyle}" />
+            <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 处理器" Title="CPU" Subtitle="{Binding Cpu.DisplayName}">
+                <controls:PageHeader.Content>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Background="{ThemeResource CpuAccentSubtleBrush}" CornerRadius="14"
+                                Padding="14,6" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding Cpu.UsageText}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource CpuAccentBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="实时" FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Button Click="OnRefreshClicked" ToolTipService.ToolTip="立即刷新 (F5)"
+                                AutomationProperties.Name="立即刷新监测数据">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                        </Button>
+                    </StackPanel>
+                </controls:PageHeader.Content>
+            </controls:PageHeader>
 
-            <!-- CPU 使用率曲线 -->
+            <!-- 使用率趋势 -->
             <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel>
-                    <Grid>
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="CPU 使用率历史 (最近 60 个采样点)"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <TextBlock FontSize="24" Foreground="#FF0078D4"
-                                       VerticalAlignment="Center" FontWeight="SemiBold"
-                                       Text="{Binding Cpu.UsageText}" />
-                        </StackPanel>
+                        <TextBlock Text="使用率趋势" Style="{StaticResource SectionHeaderTextBlockStyle}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Cpu.History.Summary}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Grid>
-                    <controls:UsageHistoryChart
-                        Height="200"
-                        Data="{Binding Cpu.History.Samples}"
-                        LineColor="#FF0078D4" />
-                </StackPanel>
-            </Border>
-
-            <!-- CPU 详情 -->
-            <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="处理器信息" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
-                    <Grid ColumnSpacing="24" RowSpacing="6">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                    <controls:UsageHistoryChart Height="196"
+                                                Data="{Binding Cpu.History.Samples}"
+                                                AccentColor="{ThemeResource CpuAccentColor}"
+                                                ShowGridLines="{Binding Charts.ShowChartGrid}"
+                                                ShowAreaFill="{Binding Charts.ShowChartArea}"
+                                                ShowThresholdLine="{Binding Charts.ShowThresholdLine}"
+                                                Threshold="{Binding Charts.Threshold}"
+                                                Capacity="{Binding Charts.HistoryCapacity}"
+                                                AutomationProperties.Name="处理器使用率趋势图" />
+                    <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-
-                        <TextBlock Text="名称:" Grid.Row="0" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Text="{Binding Cpu.Name}" Grid.Row="0" Grid.Column="1" FontSize="12"
-                                   TextTrimming="CharacterEllipsis" />
-
-                        <TextBlock Text="当前频率:" Grid.Row="0" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Text="{Binding Cpu.ClockSpeedText}" Grid.Row="0" Grid.Column="3" FontSize="12" />
-
-                        <TextBlock Text="物理核心:" Grid.Row="1" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Text="{Binding Cpu.CoreCount}" Grid.Row="1" Grid.Column="1" FontSize="12" />
-
-                        <TextBlock Text="逻辑处理器:" Grid.Row="1" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Text="{Binding Cpu.LogicalProcessorCount}" Grid.Row="1" Grid.Column="3" FontSize="12" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="平均值" Value="{Binding Cpu.History.AverageText}" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="峰值" Value="{Binding Cpu.History.PeakText}" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="当前频率" Value="{Binding Cpu.ClockSpeedText}" />
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- 每核心使用率 -->
             <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="每核心使用率" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
-                    <ItemsControl ItemsSource="{Binding Cpu.PerCoreUsage}">
-                        <ItemsControl.ItemTemplate>
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="每核心使用率" Style="{StaticResource SectionHeaderTextBlockStyle}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Cpu.HardwareSummary}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                    <ItemsRepeater ItemsSource="{Binding Cpu.PerCoreUsage}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout MinItemWidth="190" MinColumnSpacing="8" MinRowSpacing="8"
+                                               ItemsStretch="Fill" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="vm:CoreUsageItem">
-                                <Grid Margin="0,3" ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="45" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding Label}"
-                                               FontSize="11" VerticalAlignment="Center" />
-                                    <ProgressBar Grid.Column="1" Value="{Binding UsagePercent}"
-                                                 Maximum="100" VerticalAlignment="Center"
-                                                 Foreground="#FF0078D4" />
-                                    <TextBlock Grid.Column="2" Text="{Binding UsageText}"
-                                               FontSize="10" VerticalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                </Grid>
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="6" Padding="10,8">
+                                    <StackPanel Spacing="6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Label}" FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding UsageText}"
+                                                       FontSize="11" FontWeight="SemiBold" />
+                                        </Grid>
+                                        <ProgressBar Value="{Binding UsagePercent}" Maximum="100"
+                                                     Height="4" CornerRadius="2"
+                                                     Foreground="{ThemeResource CpuAccentBrush}" />
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </StackPanel>
+            </Border>
+
+            <!-- 处理器规格 -->
+            <Border Style="{StaticResource MonitorCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="处理器规格" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                               Margin="0,0,0,4" />
+                    <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="处理器名称" Value="{Binding Cpu.Name}" />
+                    <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="物理核心" Value="{Binding Cpu.CoreCountText}" />
+                    <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="逻辑处理器" Value="{Binding Cpu.LogicalProcessorCountText}" />
+                    <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="当前频率" Value="{Binding Cpu.ClockSpeedText}" />
                 </StackPanel>
             </Border>
 

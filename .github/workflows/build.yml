@@ -85,4 +85,4 @@ jobs:
           $file = "SystemMonitor-$env:RELEASE_TAG-win-x64-setup.exe"
           $hash = (Get-FileHash "installer/$file" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $file" | Set-Content -Encoding ascii "installer/$file.sha256"
-          gh release create $env:RELEASE_TAG "installer/$file" "installer/$file.sha256" --latest --target $env:GITHUB_SHA --title "System Monitor $env:RELEASE_TAG · WinUI 3 完整版" --notes "下载 setup.exe 安装完整版，无需单独配置 .NET 或 Windows App SDK。安装后从开始菜单打开 System Monitor。新增主题、窗口置顶与采样偏好；保留 Mica 背景、Fluent 导航、性能曲线和进程内存排行。"
+          gh release create $env:RELEASE_TAG "installer/$file" "installer/$file.sha256" --latest --target $env:GITHUB_SHA --title "System Monitor $env:RELEASE_TAG · WinUI 3 完整版" --notes "下载 setup.exe 安装完整版，无需单独配置 .NET 或 Windows App SDK。安装后从开始菜单打开 System Monitor。界面按 Fluent 2 重构：主题感知配色、自定义标题栏、响应式总览仪表盘、平滑趋势图与圆角仪表盘；设置新增窗口材质、窗口尺寸记忆、1–10 秒采样间隔、图表选项、CPU/内存占用提醒、开机启动与配置管理。"

@@ -31,4 +31,10 @@ public sealed partial class OverviewPage : Page
         }
         CopyFeedback.IsOpen = true;
     }
+
+    private void OnRefreshClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel monitor)
+            monitor.RefreshNow();
+    }
 }

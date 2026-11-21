@@ -13,10 +13,15 @@ public class CpuViewModel : BaseViewModel
     private readonly CpuService _service = new();
     private CpuInfo _info = new();
 
-
     public string Name => _info.Name;
+    public string DisplayName => string.IsNullOrWhiteSpace(_info.Name) ? "正在读取处理器信息…" : _info.Name;
     public int CoreCount => _info.CoreCount;
     public int LogicalProcessorCount => _info.LogicalProcessorCount;
+    public string CoreCountText => CoreCount.ToString();
+    public string LogicalProcessorCountText => LogicalProcessorCount.ToString();
+    public string HardwareSummary => CoreCount > 0
+        ? $"{CoreCount} 物理核心 · {LogicalProcessorCount} 线程"
+        : "正在读取处理器信息…";
 
     private float _usagePercent;
     public float UsagePercent
@@ -39,7 +44,14 @@ public class CpuViewModel : BaseViewModel
         set => SetProperty(ref _usageText, value);
     }
 
-    private string _clockSpeedText = "0 MHz";
+    private string _usageValueText = "—";
+    public string UsageValueText
+    {
+        get => _usageValueText;
+        set => SetProperty(ref _usageValueText, value);
+    }
+
+    private string _clockSpeedText = "—";
     public string ClockSpeedText
     {
         get => _clockSpeedText;
@@ -64,13 +76,18 @@ public class CpuViewModel : BaseViewModel
     public void Apply(CpuInfo info)
     {
         OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(CoreCount));
         OnPropertyChanged(nameof(LogicalProcessorCount));
+        OnPropertyChanged(nameof(CoreCountText));
+        OnPropertyChanged(nameof(LogicalProcessorCountText));
+        OnPropertyChanged(nameof(HardwareSummary));
 
         UsagePercent = (float)Math.Round(info.UsagePercent, 1);
         UsageText = $"{UsagePercent:0.0}%";
+        UsageValueText = $"{UsagePercent:0.0}";
         ClockSpeedMHz = info.ClockSpeedMHz;
-        ClockSpeedText = $"{(ClockSpeedMHz / 1000):0.00} GHz";
+        ClockSpeedText = ClockSpeedMHz > 0 ? $"{ClockSpeedMHz / 1000:0.00} GHz" : "—";
 
         History.Append(UsagePercent);
 
@@ -91,10 +108,13 @@ public class CpuViewModel : BaseViewModel
                     {
                         CoreIndex = i,
                         UsagePercent = usage,
-                        Label = $"核心 {i}"
+                        Label = $"核心 {i}",
                     });
                 }
             }
+
+            while (PerCoreUsage.Count > coreUsages.Count)
+                PerCoreUsage.RemoveAt(PerCoreUsage.Count - 1);
         }
     }
 }

@@ -5,145 +5,161 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:WinUIApp.Controls">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="24" Spacing="16">
+    <Grid>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="MemoryLayout">
+                <VisualState x:Name="MemoryWide">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="900" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GaugeCard.(Grid.Row)" Value="0" />
+                        <Setter Target="GaugeCard.(Grid.Column)" Value="0" />
+                        <Setter Target="GaugeCard.(Grid.ColumnSpan)" Value="1" />
+                        <Setter Target="DetailCard.(Grid.Row)" Value="0" />
+                        <Setter Target="DetailCard.(Grid.Column)" Value="1" />
+                        <Setter Target="DetailCard.(Grid.ColumnSpan)" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="MemoryNarrow">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GaugeCard.(Grid.Row)" Value="0" />
+                        <Setter Target="GaugeCard.(Grid.Column)" Value="0" />
+                        <Setter Target="GaugeCard.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="DetailCard.(Grid.Row)" Value="2" />
+                        <Setter Target="DetailCard.(Grid.Column)" Value="0" />
+                        <Setter Target="DetailCard.(Grid.ColumnSpan)" Value="2" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
 
-            <TextBlock Text="内存详细监测" Style="{StaticResource TitleTextBlockStyle}" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      HorizontalContentAlignment="Stretch">
+            <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
 
-            <!-- 内存使用率环 -->
-            <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock Text="物理内存使用率" Style="{StaticResource BodyStrongTextBlockStyle}"
-                               HorizontalAlignment="Center" Margin="0,0,0,8" />
-                    <controls:ArcGauge
-                        Height="220" Width="220"
-                        Percent="{Binding Memory.UsagePercent}"
-                        Title="内存"
-                        Subtitle="{Binding Memory.UsageText}"
-                        GaugeColor="#FF107C10"
-                        StrokeWidth="24" />
-                </StackPanel>
-            </Border>
+                <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 内存" Title="内存"
+                                     Subtitle="{Binding Memory.AvailableOfTotalText}">
+                    <controls:PageHeader.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Background="{ThemeResource MemoryAccentSubtleBrush}" CornerRadius="14"
+                                    Padding="14,6" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Memory.UsageText}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource MemoryAccentBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="实时" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Button Click="OnRefreshClicked" ToolTipService.ToolTip="立即刷新 (F5)"
+                                    AutomationProperties.Name="立即刷新监测数据">
+                                <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                            </Button>
+                        </StackPanel>
+                    </controls:PageHeader.Content>
+                </controls:PageHeader>
 
-            <!-- 内存统计详情 -->
-            <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="内存统计" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,12" />
+                <Grid ColumnSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                    <!-- 总量 -->
-                    <Grid Margin="0,4" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="总内存" FontSize="12" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="1" Value="100" Maximum="100"
-                                     VerticalAlignment="Center" Foreground="#FF0078D4" />
-                        <TextBlock Grid.Column="2" Text="{Binding Memory.TotalText}" FontSize="11"
-                                   VerticalAlignment="Center" />
-                    </Grid>
+                    <!-- 使用率环 -->
+                    <Border x:Name="GaugeCard" Grid.Row="0" Grid.Column="0"
+                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                        <StackPanel Spacing="8" HorizontalAlignment="Center">
+                            <TextBlock Text="物理内存使用率" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                                       HorizontalAlignment="Center" />
+                            <controls:ArcGauge Height="210" Width="210"
+                                               Percent="{Binding Memory.UsagePercent}"
+                                               Value="{Binding Memory.UsageText}"
+                                               Caption="已使用"
+                                               GaugeColor="{ThemeResource MemoryAccentColor}"
+                                               StrokeWidth="16"
+                                               AutomationProperties.Name="物理内存使用率仪表" />
+                            <TextBlock Text="{Binding Memory.AvailableOfTotalText}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
 
-                    <!-- 已用 -->
-                    <Grid Margin="0,4" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="已用" FontSize="12" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="1"
-                                     Value="{Binding Memory.UsagePercent}" Maximum="100"
-                                     VerticalAlignment="Center" Foreground="#FFD83B01" />
-                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
-                            <Run Text="{Binding Memory.UsedGB}" />
-                            <Run Text=" GB" />
-                        </TextBlock>
-                    </Grid>
+                    <!-- 明细 -->
+                    <Border x:Name="DetailCard" Grid.Row="0" Grid.Column="1"
+                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="内存明细" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                                       Margin="0,0,0,6" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="总内存" Value="{Binding Memory.TotalText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="已用" Value="{Binding Memory.UsedText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="可用" Value="{Binding Memory.AvailableText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="已提交" Value="{Binding Memory.CommittedText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="缓存" Value="{Binding Memory.CachedText}" />
+                            <ProgressBar Value="{Binding Memory.UsagePercent}" Maximum="100"
+                                         Height="6" CornerRadius="3" Margin="0,8,0,2"
+                                         Foreground="{ThemeResource MemoryAccentBrush}" />
+                            <TextBlock Text="已用比例包含系统缓存之外的活动内存。"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
-                    <!-- 可用 -->
-                    <Grid Margin="0,4" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="可用" FontSize="12" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="1"
-                                     Value="{Binding Memory.AvailableGB}"
-                                     Maximum="{Binding Memory.TotalGB}"
-                                     VerticalAlignment="Center" Foreground="#FF107C10" />
-                        <TextBlock Grid.Column="2" Text="{Binding Memory.AvailableText}" FontSize="11"
-                                   VerticalAlignment="Center" />
-                    </Grid>
+                <!-- 趋势 -->
+                <Border Style="{StaticResource MonitorCardStyle}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="使用率趋势" Style="{StaticResource SectionHeaderTextBlockStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Memory.History.Summary}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <controls:UsageHistoryChart Height="180"
+                                                    Data="{Binding Memory.History.Samples}"
+                                                    AccentColor="{ThemeResource MemoryAccentColor}"
+                                                    ShowGridLines="{Binding Charts.ShowChartGrid}"
+                                                    ShowAreaFill="{Binding Charts.ShowChartArea}"
+                                                    ShowThresholdLine="{Binding Charts.ShowThresholdLine}"
+                                                    Threshold="{Binding Charts.Threshold}"
+                                                    Capacity="{Binding Charts.HistoryCapacity}"
+                                                    AutomationProperties.Name="内存使用率趋势图" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="平均值" Value="{Binding Memory.History.AverageText}" />
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="峰值" Value="{Binding Memory.History.PeakText}" />
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="已提交" Value="{Binding Memory.CommittedText}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- 已提交 -->
-                    <Grid Margin="0,4" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="已提交" FontSize="12" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="1"
-                                     Value="{Binding Memory.CommittedGB}"
-                                     Maximum="{Binding Memory.TotalGB}"
-                                     VerticalAlignment="Center" Foreground="#FFFFB900" />
-                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
-                            <Run Text="{Binding Memory.CommittedGB}" />
-                            <Run Text=" GB" />
-                        </TextBlock>
-                    </Grid>
+                <!-- 内核内存池 -->
+                <Border Style="{StaticResource MonitorCardStyle}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="内核内存池" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                                   Margin="0,0,0,4" />
+                        <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="分页池" Value="{Binding Memory.PagedPoolText}" />
+                        <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="非分页池" Value="{Binding Memory.NonPagedPoolText}" />
+                    </StackPanel>
+                </Border>
 
-                    <!-- 缓存 -->
-                    <Grid Margin="0,4" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="80" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="缓存" FontSize="12" VerticalAlignment="Center" />
-                        <ProgressBar Grid.Column="1"
-                                     Value="{Binding Memory.CachedGB}"
-                                     Maximum="{Binding Memory.TotalGB}"
-                                     VerticalAlignment="Center" Foreground="#FF6B69D6" />
-                        <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
-                            <Run Text="{Binding Memory.CachedGB}" />
-                            <Run Text=" GB" />
-                        </TextBlock>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- 内存池 -->
-            <Border Style="{StaticResource MonitorCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="内存池" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,8" />
-                    <Grid ColumnSpacing="24" RowSpacing="6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Text="分页池:" Grid.Row="0" Grid.Column="0"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Grid.Row="0" Grid.Column="1" FontSize="12">
-                            <Run Text="{Binding Memory.PagedPoolGB}" />
-                            <Run Text=" GB" />
-                        </TextBlock>
-
-                        <TextBlock Text="非分页池:" Grid.Row="0" Grid.Column="2"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
-                        <TextBlock Grid.Row="0" Grid.Column="3" FontSize="12">
-                            <Run Text="{Binding Memory.NonPagedPoolGB}" />
-                            <Run Text=" GB" />
-                        </TextBlock>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-        </StackPanel>
-    </ScrollViewer>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </Page>
