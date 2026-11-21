@@ -21,7 +21,9 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     private DateTimeOffset? _lastPublished;
     public bool HasSample => _lastPublished.HasValue;
     private DateTime _lastSlowSampleUtc = DateTime.MinValue;
+    private int _slowIntervalSeconds = 5;
     private int _intervalSeconds = 1;
+    private readonly ProcessService _processService = new();
     private bool _isMonitoring;
     private string _statusText = "准备监测";
     private string _lastUpdatedText = "尚未更新";
@@ -41,6 +43,8 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     public NetworkViewModel Network { get; } = new();
     public SystemInfoViewModel SystemInfo { get; } = new();
     public ChartOptions Charts { get; } = new();
+    public ProcessesViewModel Processes { get; } = new();
+    public PowerViewModel Power { get; } = new();
 
     /// <summary>由窗口提供：返回 true 时跳过本次采样（例如窗口已最小化）。</summary>
     public Func<bool>? ShouldSkipSampling { get; set; }
@@ -193,10 +197,17 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         Charts.ShowChartArea = preferences.ShowChartArea;
         Charts.ShowThresholdLine = preferences.ShowThresholdLine;
         Charts.Threshold = preferences.CpuAlertEnabled ? preferences.CpuAlertThreshold : 80;
+        Charts.ShowTooltip = preferences.ShowChartTooltip;
 
         Cpu.History.SetCapacity(preferences.HistoryCapacity);
         Memory.History.SetCapacity(preferences.HistoryCapacity);
         SystemInfo.TopProcessCount = preferences.TopProcessCount;
+
+        _slowIntervalSeconds = Math.Clamp(preferences.ProcessRefreshSeconds, 2, 10);
+        Processes.SetSlowInterval(_slowIntervalSeconds);
+        Processes.SetSearchText(preferences.ProcessFilterText);
+        if (preferences.ProcessSortMode is >= 0 and <= 3)
+            Processes.SortMode = preferences.ProcessSortMode;
 
         _cpuAlertEnabled = preferences.CpuAlertEnabled;
         _memoryAlertEnabled = preferences.MemoryAlertEnabled;
@@ -222,15 +233,18 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
 
         // CPU / memory / network are lightweight samples relative to disk and process enumeration.
         // Slow metrics are sampled at most once every five seconds.
-        bool collectSlow = DateTime.UtcNow - _lastSlowSampleUtc >= TimeSpan.FromSeconds(5);
+        bool collectSlow = DateTime.UtcNow - _lastSlowSampleUtc >= TimeSpan.FromSeconds(_slowIntervalSeconds);
+        int topProcessCount = SystemInfo.TopProcessCount;
         try
         {
             var snapshot = await Task.Run(() => new Snapshot(
                 Cpu.Capture(),
                 Memory.Capture(),
                 Network.Capture(),
+                PowerService.GetStatus(),
                 collectSlow ? Disk.Capture() : null,
-                collectSlow ? SystemInfo.Capture() : null));
+                collectSlow ? SystemInfo.Capture() : null,
+                collectSlow ? _processService.Capture(topProcessCount) : null));
 
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
@@ -240,8 +254,14 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                     Cpu.Apply(snapshot.Cpu);
                     Memory.Apply(snapshot.Memory);
                     Network.Apply(snapshot.Network);
+                    Power.Apply(snapshot.Power);
                     if (snapshot.Disks != null) Disk.Apply(snapshot.Disks);
-                    if (snapshot.System != null) SystemInfo.Apply(snapshot.System);
+                    if (snapshot.System != null) SystemInfo.ApplyStatic(snapshot.System);
+                    if (snapshot.Processes != null)
+                    {
+                        SystemInfo.ApplyProcessSnapshot(snapshot.Processes);
+                        Processes.Apply(snapshot.Processes);
+                    }
                     SystemInfo.UpdateUptime();
 
                     if (collectSlow) _lastSlowSampleUtc = DateTime.UtcNow;
@@ -323,6 +343,8 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         var text = new StringBuilder();
         text.AppendLine($"本机监测摘要 · {_lastPublished:yyyy-MM-dd HH:mm:ss zzz}");
         text.AppendLine($"系统：{SystemInfo.OsVersion}，运行时间 {SystemInfo.Uptime}，{SystemInfo.ProcessCount} 个进程");
+        text.AppendLine($"显卡：{SystemInfo.GraphicsName}，驱动 {SystemInfo.GraphicsDriver}");
+        text.AppendLine($"电源：{Power.Summary}");
         text.AppendLine($"CPU：{Cpu.Name}，使用率 {Cpu.UsageText}，{Cpu.ClockSpeedText}");
         text.AppendLine($"内存：已用 {Memory.UsedGB:0.0} / {Memory.TotalText}（{Memory.UsageText}）");
         foreach (var drive in Disk.Drives)
@@ -352,6 +374,8 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         CpuInfo Cpu,
         MemoryInfo Memory,
         List<NetworkInfo> Network,
+        PowerStatus Power,
         List<DiskInfo>? Disks,
-        WinUIApp.Models.SystemInfo? System);
+        WinUIApp.Models.SystemInfo? System,
+        ProcessSnapshot? Processes);
 }

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="WinUIApp.Views.PowerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinUIApp.Controls"
+    Background="Transparent">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+
+            <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 电源" Title="电源"
+                                 Subtitle="{Binding Power.Summary}">
+                <controls:PageHeader.Content>
+                    <Button Click="OnRefreshClicked" ToolTipService.ToolTip="立即刷新 (F5)"
+                            AutomationProperties.Name="立即刷新电源状态">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                    </Button>
+                </controls:PageHeader.Content>
+            </controls:PageHeader>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 电量环 -->
+                <Border Style="{StaticResource MonitorCardStyle}">
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="电池电量" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                                   HorizontalAlignment="Center" />
+                        <controls:ArcGauge Height="200" Width="200"
+                                           Percent="{Binding Power.BatteryGaugeValue}"
+                                           Value="{Binding Power.BatteryPercentText}"
+                                           Caption="当前电量"
+                                           GaugeColor="{ThemeResource SystemAccentColor}"
+                                           StrokeWidth="16"
+                                           AutomationProperties.Name="电池电量仪表" />
+                        <TextBlock Text="{Binding Power.Summary}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 供电与充电状态 -->
+                <Border Grid.Column="1" Style="{StaticResource MonitorCardStyle}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="供电状态" Style="{StaticResource SectionHeaderTextBlockStyle}" />
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="供电方式"
+                                               Value="{Binding Power.PowerSourceText}" />
+                            <controls:StatTile Grid.Column="1" Style="{StaticResource StatTileStyle}" Label="充电状态"
+                                               Value="{Binding Power.ChargingStatusText}" />
+                            <controls:StatTile Grid.Column="2" Style="{StaticResource StatTileStyle}" Label="电池"
+                                               Value="{Binding Power.BatteryLevelText}" />
+                        </Grid>
+
+                        <StackPanel Spacing="2">
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="供电方式"
+                                              Value="{Binding Power.PowerSourceText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="充电状态"
+                                              Value="{Binding Power.ChargingStatusText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="电池状态"
+                                              Value="{Binding Power.BatteryStatusText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="电量"
+                                              Value="{Binding Power.BatteryPercentText}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource MonitorCardStyle}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="说明" Style="{StaticResource SectionHeaderTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="电源与电池状态来自系统电源接口，随每次采样刷新。台式机或没有系统电池的设备会显示“无电池”，此时电量环保持为空。" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

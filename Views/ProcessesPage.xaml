@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="WinUIApp.Views.ProcessesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinUIApp.Controls"
+    Background="Transparent">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1400" HorizontalAlignment="Center">
+
+            <controls:PageHeader Style="{StaticResource PageHeaderStyle}"
+                                 Eyebrow="硬件 · 进程" Title="进程"
+                                 Subtitle="{Binding Processes.Subtitle}">
+                <controls:PageHeader.Content>
+                    <Button Click="OnRefreshClicked" ToolTipService.ToolTip="立即刷新 (F5)"
+                            AutomationProperties.Name="立即刷新进程列表">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                    </Button>
+                </controls:PageHeader.Content>
+            </controls:PageHeader>
+
+            <!-- 工具栏：筛选 + 排序 + 导出 -->
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <AutoSuggestBox x:Name="SearchBox"
+                                PlaceholderText="按名称筛选进程"
+                                QueryIcon="Find"
+                                Width="280" MaxWidth="360"
+                                HorizontalAlignment="Left"
+                                Text="{Binding Processes.SearchText, Mode=TwoWay}"
+                                TextChanged="OnSearchTextChanged"
+                                LostFocus="OnSearchLostFocus"
+                                AutomationProperties.Name="按名称筛选进程" />
+
+                <TextBlock Grid.Column="1" Text="排序" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <ComboBox x:Name="SortSelector" Grid.Column="2" MinWidth="132" VerticalAlignment="Center"
+                          SelectionChanged="OnSortSelectionChanged"
+                          AutomationProperties.Name="进程排序方式">
+                    <ComboBoxItem Content="内存占用" />
+                    <ComboBoxItem Content="CPU 使用率" />
+                    <ComboBoxItem Content="名称" />
+                    <ComboBoxItem Content="PID" />
+                </ComboBox>
+
+                <TextBlock Grid.Column="3" Text="{Binding Processes.VisibleSummary}" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Processes.CopyStatusText}" VerticalAlignment="Center"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Button Click="OnCopyClicked" ToolTipService.ToolTip="复制当前列表为文本"
+                            AutomationProperties.Name="复制进程列表">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                            <TextBlock Text="复制列表" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 进程列表 -->
+            <Border Style="{StaticResource MonitorCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Padding="16,10,24,8" ColumnSpacing="8"
+                          Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="78" />
+                            <ColumnDefinition Width="74" />
+                            <ColumnDefinition Width="110" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="进程名称" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Grid.Column="1" Text="PID" HorizontalAlignment="Right"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Grid.Column="2" Text="CPU" HorizontalAlignment="Right"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Grid.Column="3" Text="内存" HorizontalAlignment="Right"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+
+                    <ListView x:Name="ProcessList" Grid.Row="1" Height="420"
+                              ItemsSource="{Binding Processes.Items}"
+                              SelectedItem="{Binding Processes.SelectedItem, Mode=TwoWay}"
+                              SelectionMode="Single"
+                              Padding="4,0,4,8"
+                              AutomationProperties.Name="进程列表">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="12,7" />
+                                <Setter Property="MinHeight" Value="40" />
+                                <Setter Property="CornerRadius" Value="4" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnSpacing="8" AutomationProperties.Name="{Binding Name}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="78" />
+                                        <ColumnDefinition Width="74" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               ToolTipService.ToolTip="{Binding Name}" />
+
+                                    <TextBlock Grid.Column="1" Text="{Binding Id}" HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                                    <TextBlock Grid.Column="2" Text="{Binding CpuText}" HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" />
+
+                                    <StackPanel Grid.Column="3" Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding MemoryText}" HorizontalAlignment="Right" />
+                                        <ProgressBar Height="2" MinHeight="2" Minimum="0" Maximum="100"
+                                                     Value="{Binding MemorySharePercent}"
+                                                     Foreground="{ThemeResource MemoryAccentBrush}"
+                                                     AutomationProperties.Name="内存相对占用" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <!-- 选中进程详情 -->
+            <Border Style="{StaticResource MonitorCardStyle}" Margin="0,4,0,0">
+                <StackPanel Spacing="8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE7C3;" FontSize="14" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="{Binding Processes.SelectedTitle}" FontSize="16" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding Processes.SelectedPidText}"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="CPU 使用率"
+                                              Value="{Binding Processes.DetailsCpuText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="线程 / 句柄"
+                                              Value="{Binding Processes.DetailsThreadsHandlesText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="优先级"
+                                              Value="{Binding Processes.DetailsPriorityText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="启动时间"
+                                              Value="{Binding Processes.DetailsStartText}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="内存占用"
+                                              Value="{Binding Processes.DetailsMemoryText}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="可执行文件"
+                                              Value="{Binding Processes.DetailsPath}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               Text="选择列表中的进程可查看详细信息；可执行文件路径与优先级需要读取进程模块，受保护进程会显示“不可访问”。" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

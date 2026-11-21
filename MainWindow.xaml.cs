@@ -20,6 +20,7 @@ namespace WinUIApp
         private readonly Dictionary<string, Page> _pages = new();
         private MainViewModel? _viewModel;
         private SettingsPage? _settingsPage;
+        private ProcessesPage? _processesPage;
         private MonitorPreferences _preferences = new();
         private ElementTheme? _appliedTheme;
         private string? _appliedBackdrop;
@@ -37,7 +38,10 @@ namespace WinUIApp
             _pages["memory"] = new MemoryPage();
             _pages["disk"] = new DiskPage();
             _pages["network"] = new NetworkPage();
+            _processesPage = new ProcessesPage();
+            _pages["processes"] = _processesPage;
             _pages["system"] = new SystemInfoPage();
+            _pages["power"] = new PowerPage();
             _settingsPage = new SettingsPage();
             _pages["settings"] = _settingsPage;
 
@@ -65,6 +69,9 @@ namespace WinUIApp
                 _settingsPage.Initialize(_preferences);
                 _settingsPage.PreferencesChanged += OnPreferencesChanged;
             }
+
+            if (_processesPage != null)
+                _processesPage.ProcessViewChanged += OnProcessViewChanged;
 
             // 窗口最小化时可暂停采样
             viewModel.ShouldSkipSampling = () =>
@@ -274,6 +281,17 @@ namespace WinUIApp
         private void OnPreferencesChanged(MonitorPreferences preferences)
         {
             ApplyPreferences(preferences);
+        }
+
+        // 进程页的排序与筛选只在离开输入框、切换排序或关闭窗口时写盘，避免每次按键都保存。
+        private void OnProcessViewChanged()
+        {
+            if (_viewModel is null)
+                return;
+
+            _preferences.ProcessSortMode = _viewModel.Processes.SortMode;
+            _preferences.ProcessFilterText = _viewModel.Processes.SearchText;
+            _preferences.Save();
         }
 
         private void OnToggleMonitoringClicked(object sender, RoutedEventArgs e)

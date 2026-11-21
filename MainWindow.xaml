@@ -86,9 +86,19 @@
                         <FontIcon Glyph="&#xE774;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="NavProcesses" Content="进程" Tag="processes">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71D;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="NavSystemInfo" Content="系统信息" Tag="system">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavPower" Content="电源" Tag="power">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE83F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

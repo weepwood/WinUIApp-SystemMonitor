@@ -11,7 +11,7 @@ namespace WinUIApp.Services;
 /// </summary>
 public sealed class MonitorPreferences
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     private static readonly string FolderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -62,6 +62,18 @@ public sealed class MonitorPreferences
 
     public bool StartWithWindows { get; set; }
 
+    /// <summary>进程页与磁盘、系统信息的刷新间隔，单位秒：2 / 5 / 10。</summary>
+    public int ProcessRefreshSeconds { get; set; } = 5;
+
+    /// <summary>进程页排序方式：0 内存、1 CPU、2 名称、3 PID。</summary>
+    public int ProcessSortMode { get; set; }
+
+    /// <summary>进程页的搜索关键字，重启后保留。</summary>
+    public string ProcessFilterText { get; set; } = string.Empty;
+
+    /// <summary>趋势图是否显示鼠标悬停读数。</summary>
+    public bool ShowChartTooltip { get; set; } = true;
+
     [JsonIgnore]
     public static string ConfigDirectory => FolderPath;
 
@@ -105,6 +117,11 @@ public sealed class MonitorPreferences
         IntervalSeconds = IntervalSeconds is 1 or 2 or 5 or 10 ? IntervalSeconds : 1;
         HistoryCapacity = HistoryCapacity is 30 or 60 or 120 ? HistoryCapacity : 60;
         TopProcessCount = TopProcessCount is 10 or 15 ? TopProcessCount : 5;
+        ProcessRefreshSeconds = ProcessRefreshSeconds is 2 or 10 ? ProcessRefreshSeconds : 5;
+        ProcessSortMode = Math.Clamp(ProcessSortMode, 0, 3);
+        ProcessFilterText = (ProcessFilterText ?? string.Empty).Trim();
+        if (ProcessFilterText.Length > 64)
+            ProcessFilterText = ProcessFilterText[..64];
 
         WindowWidth = Math.Clamp(WindowWidth, 760, 7680);
         WindowHeight = Math.Clamp(WindowHeight, 520, 4320);

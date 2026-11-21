@@ -7,7 +7,11 @@ public sealed class ChartOptions : BaseViewModel
     public int HistoryCapacity
     {
         get => _historyCapacity;
-        set => SetProperty(ref _historyCapacity, value);
+        set
+        {
+            if (SetProperty(ref _historyCapacity, value))
+                OnPropertyChanged(nameof(CapacityText));
+        }
     }
 
     private bool _showChartGrid = true;
@@ -30,6 +34,15 @@ public sealed class ChartOptions : BaseViewModel
         get => _showThresholdLine;
         set => SetProperty(ref _showThresholdLine, value);
     }
+
+    private bool _showTooltip = true;
+    public bool ShowTooltip
+    {
+        get => _showTooltip;
+        set => SetProperty(ref _showTooltip, value);
+    }
+
+    public string CapacityText => $"保留 {_historyCapacity} 个采样点";
 
     private double _threshold = 80;
     public double Threshold
