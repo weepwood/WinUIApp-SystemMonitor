@@ -42,7 +42,8 @@ namespace WinUIApp
             // 创建 ViewModel 并启动监测；窗口关闭时由 MainWindow 负责停止与保存。
             var viewModel = new MainViewModel(mainWindow.DispatcherQueue);
             mainWindow.SetViewModel(viewModel);
-            viewModel.StartMonitoring();
+            if (!string.Equals(Environment.GetEnvironmentVariable("WINUI_SKIP_MONITORING"), "1", StringComparison.Ordinal))
+                viewModel.StartMonitoring();
 
             _window = mainWindow;
             _window.Activate();
