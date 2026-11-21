@@ -55,6 +55,16 @@ public sealed class DiskService
 
     private static void UpdateDiskSpeeds(List<DiskInfo> disks)
     {
+        // 空闲磁盘的速率是 0；计数器不可用时则保持 SpeedAvailable=false。
+        // 预建索引，避免每一行 WMI 结果都扫描一次驱动器列表。
+        var ready = new Dictionary<string, DiskInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var disk in disks)
+        {
+            disk.SpeedAvailable = false;
+            if (disk.IsReady)
+                ready[disk.DriveName.TrimEnd('\\')] = disk;
+        }
+
         try
         {
             var counters = HardwareInfoService.ExecuteQuery(
@@ -62,21 +72,22 @@ public sealed class DiskService
             foreach (var counter in counters)
             {
                 string name = HardwareInfoService.GetStringProperty(counter, "Name");
-                var disk = disks.FirstOrDefault(d => d.IsReady &&
-                    string.Equals(d.DriveName.TrimEnd('\\'), name, StringComparison.OrdinalIgnoreCase));
-                if (disk == null) continue;
+                if (!ready.TryGetValue(name, out var disk))
+                    continue;
 
-                ulong readBytesPerSecond = HardwareInfoService.GetPropertyValue<ulong>(
-                    counter, "DiskReadBytesPerSec") ?? 0;
-                ulong writeBytesPerSecond = HardwareInfoService.GetPropertyValue<ulong>(
-                    counter, "DiskWriteBytesPerSec") ?? 0;
-                disk.ReadSpeedMBps = Math.Round(readBytesPerSecond / 1_048_576.0, 2);
-                disk.WriteSpeedMBps = Math.Round(writeBytesPerSecond / 1_048_576.0, 2);
+                ulong? read = HardwareInfoService.GetPropertyValue<ulong>(counter, "DiskReadBytesPerSec");
+                ulong? write = HardwareInfoService.GetPropertyValue<ulong>(counter, "DiskWriteBytesPerSec");
+                if (!read.HasValue || !write.HasValue)
+                    continue;
+
+                disk.ReadSpeedMBps = Math.Round(read.Value / 1_048_576.0, 2);
+                disk.WriteSpeedMBps = Math.Round(write.Value / 1_048_576.0, 2);
+                disk.SpeedAvailable = true;
             }
         }
         catch (Exception)
         {
-            // Hardware counters can be unavailable or disabled. Capacity remains usable.
+            // WMI 或性能计数器故障时仅影响实时速度，容量仍可显示。
         }
     }
 }
