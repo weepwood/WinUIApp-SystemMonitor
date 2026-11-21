@@ -1,13 +1,14 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Collections.Generic;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
 namespace WinUIApp.ViewModels;
 
 /// <summary>
-/// 磁盘信息 ViewModel
+/// 磁盘信息 ViewModel，同时汇总所有就绪驱动器的容量数据。
 /// </summary>
 public class DiskViewModel : BaseViewModel
 {
@@ -15,11 +16,59 @@ public class DiskViewModel : BaseViewModel
 
     public ObservableCollection<DiskItemViewModel> Drives { get; } = new();
 
+    private double _totalUsagePercent;
+    public double TotalUsagePercent
+    {
+        get => _totalUsagePercent;
+        private set => SetProperty(ref _totalUsagePercent, value);
+    }
+
+    private string _totalUsageText = "—";
+    public string TotalUsageText
+    {
+        get => _totalUsageText;
+        private set => SetProperty(ref _totalUsageText, value);
+    }
+
+    private string _totalSizeText = "—";
+    public string TotalSizeText
+    {
+        get => _totalSizeText;
+        private set => SetProperty(ref _totalSizeText, value);
+    }
+
+    private string _totalUsedText = "—";
+    public string TotalUsedText
+    {
+        get => _totalUsedText;
+        private set => SetProperty(ref _totalUsedText, value);
+    }
+
+    private string _totalFreeText = "—";
+    public string TotalFreeText
+    {
+        get => _totalFreeText;
+        private set => SetProperty(ref _totalFreeText, value);
+    }
+
+    private string _driveCountText = "0 个驱动器";
+    public string DriveCountText
+    {
+        get => _driveCountText;
+        private set => SetProperty(ref _driveCountText, value);
+    }
+
+    private bool _hasDrives;
+    public bool HasDrives
+    {
+        get => _hasDrives;
+        private set => SetProperty(ref _hasDrives, value);
+    }
+
     public List<DiskInfo> Capture() => _service.GetDiskInfos();
 
     public void Apply(IReadOnlyList<DiskInfo> disks)
     {
-
         foreach (var disk in disks)
         {
             var existing = Drives.FirstOrDefault(d => d.DriveName == disk.DriveName);
@@ -42,7 +91,30 @@ public class DiskViewModel : BaseViewModel
             if (!currentNames.Contains(Drives[i].DriveName))
                 Drives.RemoveAt(i);
         }
+
+        RefreshAggregates();
     }
+
+    private void RefreshAggregates()
+    {
+        var ready = Drives.Where(d => d.IsReady).ToList();
+        double total = ready.Sum(d => d.TotalSizeGB);
+        double used = ready.Sum(d => d.UsedSpaceGB);
+        double free = ready.Sum(d => d.FreeSpaceGB);
+
+        TotalUsagePercent = total > 0 ? Math.Min(100, used / total * 100) : 0;
+        TotalUsageText = total > 0 ? $"{TotalUsagePercent:0.0}" : "—";
+        TotalSizeText = total > 0 ? FormatGb(total) : "—";
+        TotalUsedText = total > 0 ? FormatGb(used) : "—";
+        TotalFreeText = total > 0 ? FormatGb(free) : "—";
+        DriveCountText = $"{Drives.Count} 个驱动器";
+        HasDrives = Drives.Count > 0;
+    }
+
+    public static string FormatGb(double gigabytes) =>
+        gigabytes >= 1024
+            ? $"{gigabytes / 1024:0.00} TB"
+            : $"{gigabytes:0.0} GB";
 }
 
 public class DiskItemViewModel : BaseViewModel
@@ -88,7 +160,7 @@ public class DiskItemViewModel : BaseViewModel
         }
     }
 
-    private string _usagePercentText = "0.0%";
+    private string _usagePercentText = "—";
     public string UsagePercentText
     {
         get => _usagePercentText;
@@ -106,8 +178,14 @@ public class DiskItemViewModel : BaseViewModel
     public bool IsReady
     {
         get => _isReady;
-        set => SetProperty(ref _isReady, value);
+        set
+        {
+            if (SetProperty(ref _isReady, value))
+                OnPropertyChanged(nameof(StatusText));
+        }
     }
+
+    public string StatusText => IsReady ? "就绪" : "未就绪";
 
     private double _readSpeedMBps;
     public double ReadSpeedMBps
@@ -123,54 +201,72 @@ public class DiskItemViewModel : BaseViewModel
         set => SetProperty(ref _writeSpeedMBps, value);
     }
 
-    private string _readSpeedText = "0 MB/s";
+    private string _readSpeedText = "—";
     public string ReadSpeedText
     {
         get => _readSpeedText;
         set => SetProperty(ref _readSpeedText, value);
     }
 
-    private string _writeSpeedText = "0 MB/s";
+    private string _writeSpeedText = "—";
     public string WriteSpeedText
     {
         get => _writeSpeedText;
         set => SetProperty(ref _writeSpeedText, value);
     }
 
-    private string _sizeText = "0 GB / 0 GB";
+    private string _sizeText = "—";
     public string SizeText
     {
         get => _sizeText;
         set => SetProperty(ref _sizeText, value);
     }
 
+    private string _freeSpaceText = "—";
+    public string FreeSpaceText
+    {
+        get => _freeSpaceText;
+        set => SetProperty(ref _freeSpaceText, value);
+    }
+
     public void Update(Models.DiskInfo disk)
     {
         DriveName = disk.DriveName;
         IsReady = disk.IsReady;
+        DriveType = disk.DriveType;
 
         if (disk.IsReady)
         {
             DisplayName = string.IsNullOrEmpty(disk.VolumeLabel)
-                ? $"{disk.DriveName} ({disk.DriveType})"
-                : $"{disk.DriveName} {disk.VolumeLabel} ({disk.DriveType})";
+                ? $"{disk.DriveName.TrimEnd('\\')} · {disk.DriveType}"
+                : $"{disk.DriveName.TrimEnd('\\')} · {disk.VolumeLabel}";
             TotalSizeGB = disk.TotalSizeGB;
             FreeSpaceGB = disk.FreeSpaceGB;
             UsedSpaceGB = disk.UsedSpaceGB;
             UsagePercent = disk.UsagePercent;
             UsagePercentText = $"{UsagePercent:0.0}%";
-            DriveType = disk.DriveType;
             ReadSpeedMBps = disk.ReadSpeedMBps;
             WriteSpeedMBps = disk.WriteSpeedMBps;
 
             ReadSpeedText = $"{ReadSpeedMBps:0.0} MB/s";
             WriteSpeedText = $"{WriteSpeedMBps:0.0} MB/s";
-            SizeText = $"{UsedSpaceGB:0.0} GB / {TotalSizeGB:0.0} GB";
+            SizeText = $"{DiskViewModel.FormatGb(UsedSpaceGB)} / {DiskViewModel.FormatGb(TotalSizeGB)}";
+            FreeSpaceText = $"剩余 {DiskViewModel.FormatGb(FreeSpaceGB)}";
         }
         else
         {
-            DisplayName = $"{disk.DriveName} (未就绪)";
+            DisplayName = $"{disk.DriveName.TrimEnd('\\')} · {disk.DriveType}";
+            UsagePercent = 0;
+            UsagePercentText = "—";
+            TotalSizeGB = 0;
+            UsedSpaceGB = 0;
+            FreeSpaceGB = 0;
+            ReadSpeedMBps = 0;
+            WriteSpeedMBps = 0;
+            ReadSpeedText = "—";
+            WriteSpeedText = "—";
             SizeText = "不可用";
+            FreeSpaceText = "—";
         }
     }
 }

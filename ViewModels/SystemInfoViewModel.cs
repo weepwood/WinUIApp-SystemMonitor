@@ -1,4 +1,6 @@
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
@@ -17,37 +19,88 @@ public sealed class SystemInfoViewModel : BaseViewModel
     private string _osBuild = string.Empty;
     public string OsBuild { get => _osBuild; set => SetProperty(ref _osBuild, value); }
 
-    private string _machineName = string.Empty;
+    private string _machineName = "—";
     public string MachineName { get => _machineName; set => SetProperty(ref _machineName, value); }
 
-    private string _uptime = string.Empty;
+    private string _uptime = "—";
     public string Uptime { get => _uptime; set => SetProperty(ref _uptime, value); }
 
-    private string _biosVersion = string.Empty;
+    private string _biosVersion = "—";
     public string BiosVersion { get => _biosVersion; set => SetProperty(ref _biosVersion, value); }
 
-    private string _biosManufacturer = string.Empty;
+    private string _biosManufacturer = "—";
     public string BiosManufacturer { get => _biosManufacturer; set => SetProperty(ref _biosManufacturer, value); }
 
-    private string _motherboardManufacturer = string.Empty;
+    private string _motherboardManufacturer = "—";
     public string MotherboardManufacturer { get => _motherboardManufacturer; set => SetProperty(ref _motherboardManufacturer, value); }
 
-    private string _motherboardProduct = string.Empty;
+    private string _motherboardProduct = "—";
     public string MotherboardProduct { get => _motherboardProduct; set => SetProperty(ref _motherboardProduct, value); }
 
     private double _installedMemoryGB;
     public double InstalledMemoryGB { get => _installedMemoryGB; set => SetProperty(ref _installedMemoryGB, value); }
 
+    public string InstalledMemoryText => InstalledMemoryGB > 0 ? $"{InstalledMemoryGB:0.#} GB" : "—";
+
     private int _processCount;
-    public int ProcessCount { get => _processCount; set => SetProperty(ref _processCount, value); }
+    public int ProcessCount
+    {
+        get => _processCount;
+        set
+        {
+            if (SetProperty(ref _processCount, value))
+            {
+                OnPropertyChanged(nameof(ProcessThreadSummary));
+                OnPropertyChanged(nameof(ProcessCountText));
+            }
+        }
+    }
 
     private int _threadCount;
-    public int ThreadCount { get => _threadCount; set => SetProperty(ref _threadCount, value); }
+    public int ThreadCount
+    {
+        get => _threadCount;
+        set
+        {
+            if (SetProperty(ref _threadCount, value))
+            {
+                OnPropertyChanged(nameof(ProcessThreadSummary));
+                OnPropertyChanged(nameof(ThreadCountText));
+            }
+        }
+    }
+
+    public string ProcessThreadSummary => $"{ProcessCount} / {ThreadCount}";
+    public string ProcessCountText => ProcessCount.ToString("N0");
+    public string ThreadCountText => ThreadCount.ToString("N0");
 
     private long _handleCount;
-    public long HandleCount { get => _handleCount; set => SetProperty(ref _handleCount, value); }
+    public long HandleCount
+    {
+        get => _handleCount;
+        set
+        {
+            if (SetProperty(ref _handleCount, value))
+                OnPropertyChanged(nameof(HandleCountText));
+        }
+    }
 
-    public ProcessMemoryInfo[] TopProcesses { get; private set; } = Array.Empty<ProcessMemoryInfo>();
+    public string HandleCountText => HandleCount > 0 ? HandleCount.ToString("N0") : "—";
+
+    private int _topProcessCount = 5;
+    public int TopProcessCount
+    {
+        get => _topProcessCount;
+        set
+        {
+            if (SetProperty(ref _topProcessCount, value))
+                OnPropertyChanged(nameof(TopProcessesTitle));
+        }
+    }
+
+    public string TopProcessesTitle => $"内存占用前 {TopProcessCount} 的进程";
+
+    public ObservableCollection<ProcessRowViewModel> TopProcesses { get; } = new();
 
     // Invoked by a single sampling worker at most once every five seconds.
     public SystemInfo Capture()
@@ -67,7 +120,7 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
         try
         {
-            ProcessService.Sample(info);
+            ProcessService.Sample(info, TopProcessCount);
         }
         catch (Exception) { }
 
@@ -132,11 +185,37 @@ public sealed class SystemInfoViewModel : BaseViewModel
         MotherboardManufacturer = info.MotherboardManufacturer;
         MotherboardProduct = info.MotherboardProduct;
         InstalledMemoryGB = info.InstalledMemoryGB;
-        TopProcesses = info.TopProcesses;
-        OnPropertyChanged(nameof(TopProcesses));
+        OnPropertyChanged(nameof(InstalledMemoryText));
+
+        UpdateTopProcesses(info.TopProcesses);
+
         ProcessCount = info.ProcessCount;
         ThreadCount = info.ThreadCount;
         HandleCount = info.HandleCount;
+    }
+
+    private void UpdateTopProcesses(ProcessMemoryInfo[] processes)
+    {
+        if (processes.Length == 0)
+        {
+            TopProcesses.Clear();
+            return;
+        }
+
+        long max = processes.Max(p => p.WorkingSetBytes);
+        TopProcesses.Clear();
+        for (int i = 0; i < processes.Length; i++)
+        {
+            var process = processes[i];
+            TopProcesses.Add(new ProcessRowViewModel
+            {
+                Rank = i + 1,
+                Name = process.Name,
+                Id = process.Id,
+                SizeText = process.SizeText,
+                SharePercent = max > 0 ? process.WorkingSetBytes * 100.0 / max : 0,
+            });
+        }
     }
 
     public void UpdateUptime()
@@ -150,4 +229,14 @@ public sealed class SystemInfoViewModel : BaseViewModel
             ? $"{days} 天 {hours:D2}:{minutes:D2}:{seconds:D2}"
             : $"{hours:D2}:{minutes:D2}:{seconds:D2}";
     }
+}
+
+public sealed class ProcessRowViewModel
+{
+    public int Rank { get; set; }
+    public string RankText => Rank.ToString();
+    public string Name { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public string SizeText { get; set; } = string.Empty;
+    public double SharePercent { get; set; }
 }

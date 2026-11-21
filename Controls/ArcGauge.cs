@@ -1,5 +1,4 @@
 using System;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -9,52 +8,59 @@ using Windows.UI;
 namespace WinUIApp.Controls;
 
 /// <summary>
-/// 弧形仪表盘控件，使用 WinUI Shapes 绘制
+/// 270° 弧形仪表盘。轨道使用主题感知的半透明画刷，数值弧使用强调色圆头描边，
+/// 中央显示大号数值与说明文字。
 /// </summary>
 public sealed class ArcGauge : UserControl
 {
-    private readonly Grid _rootGrid;
-    private readonly Path _backgroundArc;
-    private readonly Path _foregroundArc;
-    private readonly TextBlock _titleText;
-    private readonly TextBlock _subtitleText;
+    private const double StartAngleDeg = 135.0;
+    private const double SweepAngleDeg = 270.0;
 
-    public static readonly DependencyProperty PercentProperty =
-        DependencyProperty.Register(nameof(Percent), typeof(float), typeof(ArcGauge),
-            new PropertyMetadata(0f, OnVisualPropertyChanged));
+    private readonly Grid _rootGrid = new();
+    private readonly Path _trackArc = new();
+    private readonly Path _valueArc = new();
+    private readonly TextBlock _valueText = new();
+    private readonly TextBlock _captionText = new();
+    private readonly SolidColorBrush _trackBrush = new();
+    private readonly SolidColorBrush _valueBrush = new();
 
-    public static readonly DependencyProperty TitleProperty =
-        DependencyProperty.Register(nameof(Title), typeof(string), typeof(ArcGauge),
-            new PropertyMetadata("Title", OnTitleChanged));
+    public static readonly DependencyProperty PercentProperty = DependencyProperty.Register(
+        nameof(Percent), typeof(float), typeof(ArcGauge),
+        new PropertyMetadata(0f, OnVisualChanged));
 
-    public static readonly DependencyProperty SubtitleProperty =
-        DependencyProperty.Register(nameof(Subtitle), typeof(string), typeof(ArcGauge),
-            new PropertyMetadata("0%", OnSubtitleChanged));
+    public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
+        nameof(Value), typeof(string), typeof(ArcGauge),
+        new PropertyMetadata("0%", OnValueChanged));
 
-    public static readonly DependencyProperty GaugeColorProperty =
-        DependencyProperty.Register(nameof(GaugeColor), typeof(Color), typeof(ArcGauge),
-            new PropertyMetadata(Colors.DodgerBlue, OnGaugeColorChanged));
+    public static readonly DependencyProperty CaptionProperty = DependencyProperty.Register(
+        nameof(Caption), typeof(string), typeof(ArcGauge),
+        new PropertyMetadata(string.Empty, OnCaptionChanged));
 
-    public static readonly DependencyProperty StrokeWidthProperty =
-        DependencyProperty.Register(nameof(StrokeWidth), typeof(double), typeof(ArcGauge),
-            new PropertyMetadata(18.0, OnVisualPropertyChanged));
+    public static readonly DependencyProperty GaugeColorProperty = DependencyProperty.Register(
+        nameof(GaugeColor), typeof(Color), typeof(ArcGauge),
+        new PropertyMetadata(Color.FromArgb(255, 96, 205, 255), OnVisualChanged));
 
+    public static readonly DependencyProperty StrokeWidthProperty = DependencyProperty.Register(
+        nameof(StrokeWidth), typeof(double), typeof(ArcGauge),
+        new PropertyMetadata(16.0, OnVisualChanged));
+
+    /// <summary>0-100 的填充比例。</summary>
     public float Percent
     {
         get => (float)GetValue(PercentProperty);
         set => SetValue(PercentProperty, value);
     }
 
-    public string Title
+    public string Value
     {
-        get => (string)GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get => (string)GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
     }
 
-    public string Subtitle
+    public string Caption
     {
-        get => (string)GetValue(SubtitleProperty);
-        set => SetValue(SubtitleProperty, value);
+        get => (string)GetValue(CaptionProperty);
+        set => SetValue(CaptionProperty, value);
     }
 
     public Color GaugeColor
@@ -69,115 +75,105 @@ public sealed class ArcGauge : UserControl
         set => SetValue(StrokeWidthProperty, value);
     }
 
-    private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnVisualChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ArcGauge gauge)
             gauge.UpdateGauge();
     }
 
-    private static void OnTitleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ArcGauge gauge)
-            gauge._titleText.Text = (string)e.NewValue;
+            gauge._valueText.Text = e.NewValue as string ?? string.Empty;
     }
 
-    private static void OnSubtitleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnCaptionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is ArcGauge gauge)
-            gauge._subtitleText.Text = (string)e.NewValue;
-    }
-
-    private static void OnGaugeColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is ArcGauge gauge)
-            gauge.UpdateGauge();
+            gauge._captionText.Text = e.NewValue as string ?? string.Empty;
     }
 
     public ArcGauge()
     {
-        _rootGrid = new Grid();
-        _backgroundArc = new Path
-        {
-            Stroke = new SolidColorBrush(Color.FromArgb(40, 128, 128, 128)),
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-        };
-        _foregroundArc = new Path
-        {
-            Stroke = new SolidColorBrush(Colors.DodgerBlue),
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-        };
-        _titleText = new TextBlock
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            FontSize = 14,
-            Margin = new Thickness(0, -8, 0, 0),
-        };
-        _subtitleText = new TextBlock
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            FontSize = 11,
-            Margin = new Thickness(0, 16, 0, 0),
-        };
+        _trackArc.Stroke = _trackBrush;
+        _trackArc.StrokeStartLineCap = PenLineCap.Round;
+        _trackArc.StrokeEndLineCap = PenLineCap.Round;
 
-        _rootGrid.Children.Add(_backgroundArc);
-        _rootGrid.Children.Add(_foregroundArc);
-        _rootGrid.Children.Add(_titleText);
-        _rootGrid.Children.Add(_subtitleText);
+        _valueArc.Stroke = _valueBrush;
+        _valueArc.StrokeStartLineCap = PenLineCap.Round;
+        _valueArc.StrokeEndLineCap = PenLineCap.Round;
+
+        _valueText.HorizontalAlignment = HorizontalAlignment.Center;
+        _valueText.VerticalAlignment = VerticalAlignment.Center;
+        _valueText.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        _valueText.Text = "0%";
+
+        _captionText.HorizontalAlignment = HorizontalAlignment.Center;
+        _captionText.VerticalAlignment = VerticalAlignment.Center;
+        _captionText.Opacity = 0.7;
+
+        _rootGrid.Children.Add(_trackArc);
+        _rootGrid.Children.Add(_valueArc);
+        _rootGrid.Children.Add(_valueText);
+        _rootGrid.Children.Add(_captionText);
 
         Content = _rootGrid;
-        SizeChanged += OnSizeChanged;
+        SizeChanged += (_, _) => UpdateGauge();
+        Loaded += (_, _) =>
+        {
+            UpdateThemeBrushes();
+            UpdateGauge();
+        };
+        ActualThemeChanged += (_, _) =>
+        {
+            UpdateThemeBrushes();
+            UpdateGauge();
+        };
+
+        UpdateThemeBrushes();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    private void UpdateThemeBrushes()
     {
-        UpdateGauge();
+        bool dark = ActualTheme == ElementTheme.Dark;
+        _trackBrush.Color = dark ? Color.FromArgb(46, 255, 255, 255) : Color.FromArgb(31, 0, 0, 0);
     }
 
     private void UpdateGauge()
     {
         double width = ActualWidth;
         double height = ActualHeight;
-        if (width <= 0 || height <= 0) return;
+        if (width <= 0 || height <= 0)
+            return;
 
         double minDim = Math.Min(width, height);
-        double strokeWidth = Math.Max(StrokeWidth, minDim * 0.08);
+        double strokeWidth = StrokeWidth > 0 ? StrokeWidth : Math.Max(10, minDim * 0.07);
+        strokeWidth = Math.Min(strokeWidth, minDim * 0.22);
         double radius = (minDim - strokeWidth) / 2.0;
-        if (radius <= 0) return;
+        if (radius <= 0)
+            return;
 
         double centerX = width / 2.0;
         double centerY = height / 2.0;
 
-        // 角度定义: 从 135° 到 405° (即 135° + 270°)
-        double startAngleDeg = 135.0;
-        double sweepAngleDeg = 270.0;
+        double startAngleRad = StartAngleDeg * Math.PI / 180.0;
+        double sweepAngleRad = SweepAngleDeg * Math.PI / 180.0;
 
-        double startAngleRad = startAngleDeg * Math.PI / 180.0;
-        double sweepAngleRad = sweepAngleDeg * Math.PI / 180.0;
+        _trackArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);
+        _trackArc.StrokeThickness = strokeWidth;
 
-        // 背景弧
-        _backgroundArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);
-        _backgroundArc.StrokeThickness = strokeWidth;
-        ((SolidColorBrush)_backgroundArc.Stroke).Color = Color.FromArgb(40, 128, 128, 128);
-
-        // 前景弧（百分比）
-        float pct = (float)Math.Clamp(Percent / 100.0, 0.0, 1.0);
+        double pct = Math.Clamp(Percent / 100.0, 0.0, 1.0);
         double fillSweep = sweepAngleRad * pct;
-
-        _foregroundArc.Data = fillSweep > 0.001
+        _valueArc.Data = fillSweep > 0.0001
             ? CreateArcGeometry(centerX, centerY, radius, startAngleRad, fillSweep)
             : null;
-        _foregroundArc.StrokeThickness = strokeWidth;
-        ((SolidColorBrush)_foregroundArc.Stroke).Color = GaugeColor;
+        _valueArc.StrokeThickness = strokeWidth;
+        _valueBrush.Color = GaugeColor;
 
-        // 调整文字大小
-        _titleText.FontSize = minDim * 0.14;
-        _subtitleText.FontSize = minDim * 0.08;
-        _titleText.Margin = new Thickness(0, -minDim * 0.06, 0, 0);
-        _subtitleText.Margin = new Thickness(0, minDim * 0.08, 0, 0);
+        _valueText.FontSize = Math.Max(16, minDim * 0.17);
+        _captionText.FontSize = Math.Max(10, minDim * 0.062);
+        _valueText.Margin = new Thickness(0, -minDim * 0.035, 0, 0);
+        _captionText.Margin = new Thickness(0, minDim * 0.115, 0, 0);
     }
 
     private static PathGeometry CreateArcGeometry(double cx, double cy, double radius, double startAngleRad, double sweepAngleRad)
@@ -189,20 +185,21 @@ public sealed class ArcGauge : UserControl
         double x2 = cx + radius * Math.Cos(endAngleRad);
         double y2 = cy + radius * Math.Sin(endAngleRad);
 
-        bool isLargeArc = sweepAngleRad > Math.PI;
-
-        var pathFigure = new PathFigure { StartPoint = new Windows.Foundation.Point(x1, y1) };
-        var arcSegment = new ArcSegment
+        var figure = new PathFigure
+        {
+            StartPoint = new Windows.Foundation.Point(x1, y1),
+            IsClosed = false,
+        };
+        figure.Segments.Add(new ArcSegment
         {
             Point = new Windows.Foundation.Point(x2, y2),
             Size = new Windows.Foundation.Size(radius, radius),
-            IsLargeArc = isLargeArc,
+            IsLargeArc = sweepAngleRad > Math.PI,
             SweepDirection = SweepDirection.Clockwise,
-        };
-        pathFigure.Segments.Add(arcSegment);
+        });
 
-        var pathGeometry = new PathGeometry();
-        pathGeometry.Figures.Add(pathFigure);
-        return pathGeometry;
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
     }
 }
