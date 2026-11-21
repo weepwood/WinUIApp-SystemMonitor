@@ -36,6 +36,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      statuses: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
@@ -57,6 +58,8 @@ jobs:
           if (!(Test-Path $iscc)) { throw 'Inno Setup 6 is required on the Windows runner' }
           & $iscc "/DAppVersion=$($env:RELEASE_TAG.Substring(1))" Packaging/SystemMonitor.iss
       - name: Install and launch the full WinUI app
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $setup = (Resolve-Path "installer/SystemMonitor-$env:RELEASE_TAG-win-x64-setup.exe").Path
           $dir = Join-Path $env:RUNNER_TEMP 'System Monitor smoke test'
@@ -73,9 +76,10 @@ jobs:
                   Where-Object { $_.ProviderName -in @('Application Error', '.NET Runtime', 'Windows Error Reporting') } |
                   Select-Object -First 4
                 $details = ($events | ForEach-Object { "$($_.ProviderName): $($_.Message -replace '[\r\n]+', ' ')" }) -join ' | '
-                $details = $details -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A' -replace ':', '%3A' -replace ',', '%2C'
-                Write-Output "::error file=.github/workflows/build.yml,line=77,title=WinUI startup diagnostic::Exit code $($app.ExitCode). $details"
-                throw "Startup failed: $($app.ExitCode)"
+                $diagnostic = "Exit code $($app.ExitCode). $details" -replace '[\r\n]+', ' '
+                $description = if ($diagnostic.Length -gt 140) { $diagnostic.Substring(0, 140) } else { $diagnostic }
+                gh api "repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -f state=failure -f context='WinUI release startup diagnostic' -f description="$description" -f target_url="$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | Out-Null
+                throw "Startup failed: $diagnostic"
               }
             } until ($app.MainWindowHandle -ne 0 -or (Get-Date) -ge $deadline)
             if ($app.MainWindowHandle -eq 0) { throw 'No main window appeared' }
