@@ -376,10 +376,7 @@ namespace WinUIApp
         private void ShowPage(Page page)
         {
             if (ReferenceEquals(ContentFrame.Content, page))
-            {
-                MotionSettings.PlayPageEntrance(page);
                 return;
-            }
 
             ContentFrame.Content = page;
             MotionSettings.PlayPageEntrance(page);

@@ -14,6 +14,8 @@ public class DiskInfo
     public string DriveType { get; set; } = string.Empty;
     public string DriveFormat { get; set; } = string.Empty;
     public bool IsReady { get; set; }
+    // 计数器缺失和真实的 0 MB/s 必须区分。
+    public bool SpeedAvailable { get; set; }
     public double ReadSpeedMBps { get; set; }
     public double WriteSpeedMBps { get; set; }
 }
