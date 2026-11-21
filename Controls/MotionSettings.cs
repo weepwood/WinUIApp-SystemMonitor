@@ -49,6 +49,22 @@ public static class MotionSettings
         }
     }
 
+    public static void ResetPageEntrance(UIElement element)
+    {
+        try
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(element);
+            visual.StopAnimation("Opacity");
+            visual.StopAnimation("Offset");
+            visual.Opacity = 1f;
+            visual.Offset = Vector3.Zero;
+        }
+        catch (Exception)
+        {
+            // 页面尚未进入视觉树时无需恢复。
+        }
+    }
+
     /// <summary>
     /// 页面切换时的入场动画：内容轻微上浮 + 淡入（Fluent 的 page refresh 观感）。
     /// 使用 Composition 而非 Storyboard，避免与布局系统争抢属性。
@@ -56,7 +72,11 @@ public static class MotionSettings
     public static void PlayPageEntrance(UIElement element, double offsetY = 12)
     {
         if (!IsMotionEnabled)
+        {
+            // 用户在播放中关闭动画时，也要清除之前动画留下的视觉状态。
+            ResetPageEntrance(element);
             return;
+        }
 
         try
         {
@@ -81,7 +101,7 @@ public static class MotionSettings
         }
         catch (Exception)
         {
-            // 动效失败不影响内容显示。
+            ResetPageEntrance(element);
         }
     }
 }
