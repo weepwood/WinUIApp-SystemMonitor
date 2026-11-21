@@ -104,6 +104,10 @@ Controls/       趋势图、仪表盘，以及 PageHeader / SettingsCard / InfoR
 App.xaml        Fluent 调色板、卡片与排版样式、自定义控件模板
 ```
 
+## 优化与设计分析
+
+对标 LibreHardwareMonitor、System Informer、btop、Glances、TrafficMonitor 等开源监测工具的分析与改进路线（采样性能、进程页体验、可视化、工程化）见 [docs/优化与设计分析.md](docs/优化与设计分析.md)。
+
 ## Windows 手动验收
 
 1. 启动后观察总览：首次更新前不能复制摘要；更新后指标卡的迷你趋势图逐点增加，到所选采样点数后保持不变；四张卡片在 1200 / 780 像素断点间正确换行。
