@@ -9,7 +9,7 @@ using WinUIApp.Models;
 namespace WinUIApp.Services;
 
 /// <summary>
-/// Reads cumulative byte counters via the managed network API. No WMI round-trip.
+/// Reads cumulative byte counters (IPv4 + IPv6) via the managed network API. No WMI round-trip.
 /// Rates are decimal megabits per second (1 Mbps = 1,000,000 bits/s).
 /// </summary>
 public sealed class NetworkService
@@ -50,8 +50,23 @@ public sealed class NetworkService
                 info.MacAddress = string.Join(":", mac.Select(b => b.ToString("X2")));
 
                 var stats = nic.GetIPv4Statistics();
-                info.BytesReceived = stats.BytesReceived;
-                info.BytesSent = stats.BytesSent;
+                long receivedBytes = stats.BytesReceived;
+                long sentBytes = stats.BytesSent;
+
+                // 只统计 IPv4 会漏掉全部 v6 流量，这里把两份计数器相加。
+                try
+                {
+                    var stats6 = nic.GetIPv6Statistics();
+                    receivedBytes += stats6.BytesReceived;
+                    sentBytes += stats6.BytesSent;
+                }
+                catch (Exception)
+                {
+                    // 个别适配器（如部分隧道网卡）不提供 v6 统计。
+                }
+
+                info.BytesReceived = receivedBytes;
+                info.BytesSent = sentBytes;
 
                 if (_previousStats.TryGetValue(nic.Id, out var previous))
                 {
