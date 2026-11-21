@@ -84,18 +84,21 @@
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="版本号" Value="{Binding SystemInfo.OsBuild}" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="安装内存" Value="{Binding SystemInfo.InstalledMemoryText}" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="运行时间" Value="{Binding SystemInfo.Uptime}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="电源状态" Value="{Binding Power.Summary}" />
                         </StackPanel>
                     </Border>
 
                     <Border x:Name="FirmwareCard" Grid.Row="0" Grid.Column="1"
                             Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="固件与主板" Style="{StaticResource SectionHeaderTextBlockStyle}"
+                            <TextBlock Text="固件、主板与显卡" Style="{StaticResource SectionHeaderTextBlockStyle}"
                                        Margin="0,0,0,4" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="BIOS 厂商" Value="{Binding SystemInfo.BiosManufacturer}" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="BIOS 版本" Value="{Binding SystemInfo.BiosVersion}" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="主板厂商" Value="{Binding SystemInfo.MotherboardManufacturer}" />
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="主板型号" Value="{Binding SystemInfo.MotherboardProduct}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="显卡" Value="{Binding SystemInfo.GraphicsName}" />
+                            <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="显卡驱动" Value="{Binding SystemInfo.GraphicsDriver}" />
                         </StackPanel>
                     </Border>
                 </Grid>

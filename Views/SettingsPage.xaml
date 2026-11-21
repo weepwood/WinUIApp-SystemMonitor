@@ -71,11 +71,20 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard Style="{StaticResource SettingsCardStyle}" Icon="&#xE9D2;" Header="进程列表长度"
-                                   Description="系统信息页显示的内存占用前 N 个进程。磁盘与进程信息至少间隔 5 秒更新。">
+                                   Description="系统信息页显示的内存占用前 N 个进程。">
                 <ComboBox x:Name="ProcessCountSelector" MinWidth="130" SelectionChanged="OnSelectionChanged">
                     <ComboBoxItem Tag="5" Content="5 个进程" />
                     <ComboBoxItem Tag="10" Content="10 个进程" />
                     <ComboBoxItem Tag="15" Content="15 个进程" />
+                </ComboBox>
+            </controls:SettingsCard>
+
+            <controls:SettingsCard Style="{StaticResource SettingsCardStyle}" Icon="&#xE916;" Header="进程与慢速指标刷新间隔"
+                                   Description="进程列表、磁盘与系统信息的刷新频率。CPU、内存与网络始终按采样间隔更新。">
+                <ComboBox x:Name="ProcessIntervalSelector" MinWidth="130" SelectionChanged="OnSelectionChanged">
+                    <ComboBoxItem Tag="2" Content="2 秒" />
+                    <ComboBoxItem Tag="5" Content="5 秒" />
+                    <ComboBoxItem Tag="10" Content="10 秒" />
                 </ComboBox>
             </controls:SettingsCard>
 
@@ -110,6 +119,12 @@
             <controls:SettingsCard Style="{StaticResource SettingsCardStyle}" Icon="&#xE7BA;" Header="阈值参考线"
                                    Description="在趋势图上标出提醒阈值的位置，便于对照当前读数。">
                 <ToggleSwitch x:Name="ThresholdLineSwitch" OnContent="开" OffContent="关"
+                              Toggled="OnSettingToggled" />
+            </controls:SettingsCard>
+
+            <controls:SettingsCard Style="{StaticResource SettingsCardStyle}" Icon="&#xE721;" Header="鼠标悬停读数"
+                                   Description="鼠标在趋势图上移动时显示竖直参考线与对应采样点的数值。">
+                <ToggleSwitch x:Name="TooltipSwitch" OnContent="开" OffContent="关"
                               Toggled="OnSettingToggled" />
             </controls:SettingsCard>
 

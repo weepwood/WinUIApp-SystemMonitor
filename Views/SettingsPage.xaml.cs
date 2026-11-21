@@ -33,6 +33,7 @@ public sealed partial class SettingsPage : Page
         SelectTag(IntervalSelector, preferences.IntervalSeconds.ToString());
         SelectTag(CapacitySelector, preferences.HistoryCapacity.ToString());
         SelectTag(ProcessCountSelector, preferences.TopProcessCount.ToString());
+        SelectTag(ProcessIntervalSelector, preferences.ProcessRefreshSeconds.ToString());
 
         PinSwitch.IsOn = preferences.AlwaysOnTop;
         MaximizeSwitch.IsOn = preferences.StartMaximized;
@@ -41,6 +42,7 @@ public sealed partial class SettingsPage : Page
         GridSwitch.IsOn = preferences.ShowChartGrid;
         AreaSwitch.IsOn = preferences.ShowChartArea;
         ThresholdLineSwitch.IsOn = preferences.ShowThresholdLine;
+        TooltipSwitch.IsOn = preferences.ShowChartTooltip;
 
         CpuAlertSwitch.IsOn = preferences.CpuAlertEnabled;
         MemoryAlertSwitch.IsOn = preferences.MemoryAlertEnabled;
@@ -102,6 +104,9 @@ public sealed partial class SettingsPage : Page
         _preferences.IntervalSeconds = int.TryParse(GetTag(IntervalSelector, "1"), out int seconds) ? seconds : 1;
         _preferences.HistoryCapacity = int.TryParse(GetTag(CapacitySelector, "60"), out int capacity) ? capacity : 60;
         _preferences.TopProcessCount = int.TryParse(GetTag(ProcessCountSelector, "5"), out int processCount) ? processCount : 5;
+        _preferences.ProcessRefreshSeconds = int.TryParse(GetTag(ProcessIntervalSelector, "5"), out int processInterval)
+            ? processInterval
+            : 5;
 
         _preferences.AlwaysOnTop = PinSwitch.IsOn;
         _preferences.StartMaximized = MaximizeSwitch.IsOn;
@@ -111,6 +116,7 @@ public sealed partial class SettingsPage : Page
         _preferences.ShowChartGrid = GridSwitch.IsOn;
         _preferences.ShowChartArea = AreaSwitch.IsOn;
         _preferences.ShowThresholdLine = ThresholdLineSwitch.IsOn;
+        _preferences.ShowChartTooltip = TooltipSwitch.IsOn;
 
         _preferences.CpuAlertEnabled = CpuAlertSwitch.IsOn;
         _preferences.CpuAlertThreshold = CpuThresholdSlider.Value;

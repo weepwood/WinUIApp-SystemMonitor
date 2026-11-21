@@ -51,6 +51,7 @@
                                                 ShowThresholdLine="{Binding Charts.ShowThresholdLine}"
                                                 Threshold="{Binding Charts.Threshold}"
                                                 Capacity="{Binding Charts.HistoryCapacity}"
+                                                ShowTooltip="{Binding Charts.ShowTooltip}"
                                                 AutomationProperties.Name="处理器使用率趋势图" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>

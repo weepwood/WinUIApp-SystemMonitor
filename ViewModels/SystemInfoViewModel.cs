@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using WinUIApp.Models;
@@ -36,6 +37,12 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
     private string _motherboardProduct = "—";
     public string MotherboardProduct { get => _motherboardProduct; set => SetProperty(ref _motherboardProduct, value); }
+
+    private string _graphicsName = "—";
+    public string GraphicsName { get => _graphicsName; set => SetProperty(ref _graphicsName, value); }
+
+    private string _graphicsDriver = "—";
+    public string GraphicsDriver { get => _graphicsDriver; set => SetProperty(ref _graphicsDriver, value); }
 
     private double _installedMemoryGB;
     public double InstalledMemoryGB { get => _installedMemoryGB; set => SetProperty(ref _installedMemoryGB, value); }
@@ -102,11 +109,11 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
     public ObservableCollection<ProcessRowViewModel> TopProcesses { get; } = new();
 
-    // Invoked by a single sampling worker at most once every five seconds.
+    /// <summary>读取操作系统、固件、主板与显卡等静态信息。由后台采样线程调用。</summary>
     public SystemInfo Capture()
     {
         _staticInfo ??= LoadStaticInfo();
-        var info = new SystemInfo
+        return new SystemInfo
         {
             OsVersion = _staticInfo.OsVersion,
             OsBuild = _staticInfo.OsBuild,
@@ -115,16 +122,10 @@ public sealed class SystemInfoViewModel : BaseViewModel
             BiosManufacturer = _staticInfo.BiosManufacturer,
             MotherboardManufacturer = _staticInfo.MotherboardManufacturer,
             MotherboardProduct = _staticInfo.MotherboardProduct,
+            GraphicsName = _staticInfo.GraphicsName,
+            GraphicsDriver = _staticInfo.GraphicsDriver,
             InstalledMemoryGB = _staticInfo.InstalledMemoryGB,
         };
-
-        try
-        {
-            ProcessService.Sample(info, TopProcessCount);
-        }
-        catch (Exception) { }
-
-        return info;
     }
 
     private static SystemInfo LoadStaticInfo()
@@ -165,6 +166,27 @@ public sealed class SystemInfoViewModel : BaseViewModel
                 info.MotherboardManufacturer = HardwareInfoService.GetStringProperty(board, "Manufacturer");
                 info.MotherboardProduct = HardwareInfoService.GetStringProperty(board, "Product");
             }
+
+            var graphicsResults = HardwareInfoService.ExecuteQuery(
+                "SELECT Name, DriverVersion FROM Win32_VideoController");
+            if (graphicsResults.Count > 0)
+            {
+                var names = graphicsResults
+                    .Select(g => HardwareInfoService.GetStringProperty(g, "Name").Trim())
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .ToArray();
+                var drivers = graphicsResults
+                    .Select(g => HardwareInfoService.GetStringProperty(g, "DriverVersion").Trim())
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .ToArray();
+
+                if (names.Length > 0)
+                    info.GraphicsName = string.Join(" · ", names);
+                if (drivers.Length > 0)
+                    info.GraphicsDriver = string.Join(" · ", drivers);
+            }
         }
         catch (Exception) { }
 
@@ -175,7 +197,8 @@ public sealed class SystemInfoViewModel : BaseViewModel
         return info;
     }
 
-    public void Apply(SystemInfo info)
+    // Called on the UI thread after a slow sample.
+    public void ApplyStatic(SystemInfo info)
     {
         OsVersion = info.OsVersion;
         OsBuild = info.OsBuild;
@@ -184,19 +207,24 @@ public sealed class SystemInfoViewModel : BaseViewModel
         BiosManufacturer = info.BiosManufacturer;
         MotherboardManufacturer = info.MotherboardManufacturer;
         MotherboardProduct = info.MotherboardProduct;
+        GraphicsName = string.IsNullOrWhiteSpace(info.GraphicsName) ? "—" : info.GraphicsName;
+        GraphicsDriver = string.IsNullOrWhiteSpace(info.GraphicsDriver) ? "—" : info.GraphicsDriver;
         InstalledMemoryGB = info.InstalledMemoryGB;
         OnPropertyChanged(nameof(InstalledMemoryText));
-
-        UpdateTopProcesses(info.TopProcesses);
-
-        ProcessCount = info.ProcessCount;
-        ThreadCount = info.ThreadCount;
-        HandleCount = info.HandleCount;
     }
 
-    private void UpdateTopProcesses(ProcessMemoryInfo[] processes)
+    // Called on the UI thread after a slow process sample.
+    public void ApplyProcessSnapshot(ProcessSnapshot snapshot)
     {
-        if (processes.Length == 0)
+        ProcessCount = snapshot.ProcessCount;
+        ThreadCount = snapshot.ThreadCount;
+        HandleCount = snapshot.HandleCount;
+        UpdateTopProcesses(snapshot.TopByMemory);
+    }
+
+    private void UpdateTopProcesses(IReadOnlyList<ProcessInfo> processes)
+    {
+        if (processes.Count == 0)
         {
             TopProcesses.Clear();
             return;
@@ -204,7 +232,7 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
         long max = processes.Max(p => p.WorkingSetBytes);
         TopProcesses.Clear();
-        for (int i = 0; i < processes.Length; i++)
+        for (int i = 0; i < processes.Count; i++)
         {
             var process = processes[i];
             TopProcesses.Add(new ProcessRowViewModel

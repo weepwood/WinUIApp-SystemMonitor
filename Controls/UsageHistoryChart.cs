@@ -1,7 +1,9 @@
 using System;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
@@ -34,6 +36,20 @@ public sealed class UsageHistoryChart : UserControl
     private readonly SolidColorBrush _labelBrush = new();
     private readonly SolidColorBrush _thresholdBrush = new();
     private readonly SolidColorBrush _lineBrush = new();
+    private readonly SolidColorBrush _hoverBrush = new();
+    private readonly Line _hoverLine = new();
+    private readonly Ellipse _hoverDot = new();
+    private readonly Border _tooltip = new();
+    private readonly TextBlock _tooltipText = new();
+
+    private Point[] _plotPoints = Array.Empty<Point>();
+    private float[] _plotValues = Array.Empty<float>();
+    private double _plotLeft;
+    private double _plotTop;
+    private double _plotWidth;
+    private double _plotHeight;
+    private double _stepX = 1;
+    private int _hoverIndex = -1;
 
     public static readonly DependencyProperty DataProperty = DependencyProperty.Register(
         nameof(Data), typeof(float[]), typeof(UsageHistoryChart),
@@ -62,6 +78,10 @@ public sealed class UsageHistoryChart : UserControl
     public static readonly DependencyProperty ThresholdProperty = DependencyProperty.Register(
         nameof(Threshold), typeof(double), typeof(UsageHistoryChart),
         new PropertyMetadata(80.0, OnVisualChanged));
+
+    public static readonly DependencyProperty ShowTooltipProperty = DependencyProperty.Register(
+        nameof(ShowTooltip), typeof(bool), typeof(UsageHistoryChart),
+        new PropertyMetadata(true, OnPropertyChangedStatic));
 
     public float[] Data
     {
@@ -105,6 +125,22 @@ public sealed class UsageHistoryChart : UserControl
     {
         get => (double)GetValue(ThresholdProperty);
         set => SetValue(ThresholdProperty, value);
+    }
+
+    /// <summary>鼠标悬停时是否显示十字线与数值读数。</summary>
+    public bool ShowTooltip
+    {
+        get => (bool)GetValue(ShowTooltipProperty);
+        set => SetValue(ShowTooltipProperty, value);
+    }
+
+    private static void OnPropertyChangedStatic(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not UsageHistoryChart chart)
+            return;
+
+        if (!chart.ShowTooltip)
+            chart.HideHover();
     }
 
     private static void OnVisualChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -160,7 +196,35 @@ public sealed class UsageHistoryChart : UserControl
         _emptyHint.Foreground = _labelBrush;
         _canvas.Children.Add(_emptyHint);
 
-        Content = _canvas;
+        // 悬停读数层：竖直参考线 + 数据点 + 数值气泡。
+        _hoverLine.Stroke = _hoverBrush;
+        _hoverLine.StrokeThickness = 1;
+        _hoverLine.StrokeDashArray = new DoubleCollection { 4, 3 };
+        _hoverLine.Visibility = Visibility.Collapsed;
+        _canvas.Children.Add(_hoverLine);
+
+        _hoverDot.Width = 8;
+        _hoverDot.Height = 8;
+        _hoverDot.Fill = _lineBrush;
+        _hoverDot.StrokeThickness = 1.5;
+        _hoverDot.Visibility = Visibility.Collapsed;
+        _canvas.Children.Add(_hoverDot);
+
+        _tooltipText.FontSize = 11;
+        _tooltipText.FontWeight = FontWeights.SemiBold;
+        _tooltip.Child = _tooltipText;
+        _tooltip.CornerRadius = new CornerRadius(4);
+        _tooltip.Padding = new Thickness(7, 3, 7, 3);
+        _tooltip.BorderThickness = new Thickness(1);
+        _tooltip.Visibility = Visibility.Collapsed;
+        _canvas.Children.Add(_tooltip);
+
+        // 透明 Grid 作为命中测试表面：Canvas 不参与命中测试，指针事件由 Grid 冒泡上来。
+        var surface = new Grid { Background = new SolidColorBrush(Colors.Transparent) };
+        surface.Children.Add(_canvas);
+        Content = surface;
+        PointerMoved += OnPointerMoved;
+        PointerExited += (_, _) => HideHover();
         SizeChanged += (_, _) => UpdateChart();
         Loaded += (_, _) =>
         {
@@ -182,6 +246,16 @@ public sealed class UsageHistoryChart : UserControl
         _gridBrush.Color = dark ? Color.FromArgb(26, 255, 255, 255) : Color.FromArgb(20, 0, 0, 0);
         _labelBrush.Color = dark ? Color.FromArgb(138, 255, 255, 255) : Color.FromArgb(138, 0, 0, 0);
         _thresholdBrush.Color = dark ? Color.FromArgb(255, 255, 193, 96) : Color.FromArgb(255, 194, 75, 0);
+        _hoverBrush.Color = dark ? Color.FromArgb(120, 255, 255, 255) : Color.FromArgb(120, 0, 0, 0);
+
+        _tooltip.Background = new SolidColorBrush(
+            dark ? Color.FromArgb(242, 44, 44, 44) : Color.FromArgb(246, 252, 252, 252));
+        _tooltip.BorderBrush = new SolidColorBrush(
+            dark ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(24, 0, 0, 0));
+        _tooltipText.Foreground = new SolidColorBrush(
+            dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(235, 0, 0, 0));
+        _hoverDot.Stroke = new SolidColorBrush(
+            dark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 255, 255, 255));
     }
 
     private void UpdateChart()
@@ -240,6 +314,9 @@ public sealed class UsageHistoryChart : UserControl
             _endDot.Visibility = Visibility.Collapsed;
             _thresholdLine.Visibility = Visibility.Collapsed;
             _thresholdLabel.Visibility = Visibility.Collapsed;
+            _plotPoints = Array.Empty<Point>();
+            _plotValues = Array.Empty<float>();
+            HideHover();
             return;
         }
 
@@ -263,13 +340,27 @@ public sealed class UsageHistoryChart : UserControl
         int firstIndex = capacity - count;
 
         var points = new Point[count];
+        var values = new float[count];
         for (int i = 0; i < count; i++)
         {
             double x = marginLeft + stepX * (firstIndex + i);
             double value = Math.Clamp(data![i], 0, 100);
             double y = marginTop + chartHeight * (1.0 - value / 100.0);
             points[i] = new Point(x, y);
+            values[i] = (float)value;
         }
+
+        _plotPoints = points;
+        _plotValues = values;
+        _plotLeft = marginLeft;
+        _plotTop = marginTop;
+        _plotWidth = chartWidth;
+        _plotHeight = chartHeight;
+        _stepX = stepX;
+        if (ShowTooltip && _hoverIndex >= 0 && _hoverIndex < count)
+            ShowHoverAt(_hoverIndex);
+        else
+            HideHover();
 
         var lineFigure = new PathFigure
         {
@@ -311,6 +402,68 @@ public sealed class UsageHistoryChart : UserControl
         Canvas.SetLeft(_endDot, points[^1].X - 3);
         Canvas.SetTop(_endDot, points[^1].Y - 3);
         _endDot.Visibility = Visibility.Visible;
+    }
+
+    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!ShowTooltip || _plotPoints.Length == 0)
+            return;
+
+        Point position = e.GetCurrentPoint(this).Position;
+        double offset = position.X - _plotPoints[0].X;
+        int index = (int)Math.Round(offset / _stepX);
+        if (index < 0 || index >= _plotPoints.Length)
+        {
+            HideHover();
+            return;
+        }
+
+        ShowHoverAt(index);
+    }
+
+    private void ShowHoverAt(int index)
+    {
+        if (index < 0 || index >= _plotPoints.Length)
+        {
+            HideHover();
+            return;
+        }
+
+        _hoverIndex = index;
+        Point point = _plotPoints[index];
+
+        _hoverLine.X1 = point.X;
+        _hoverLine.X2 = point.X;
+        _hoverLine.Y1 = _plotTop;
+        _hoverLine.Y2 = _plotTop + _plotHeight;
+        _hoverLine.Visibility = Visibility.Visible;
+
+        _hoverDot.Visibility = Visibility.Visible;
+        Canvas.SetLeft(_hoverDot, point.X - _hoverDot.Width / 2);
+        Canvas.SetTop(_hoverDot, point.Y - _hoverDot.Height / 2);
+
+        _tooltipText.Text = $"{_plotValues[index]:0.0}%";
+        // Collapsed 元素测量结果为 0，先显示再测量才能得到气泡尺寸。
+        _tooltip.Visibility = Visibility.Visible;
+        _tooltip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double tooltipWidth = _tooltip.DesiredSize.Width;
+        double tooltipHeight = _tooltip.DesiredSize.Height;
+        double maxLeft = Math.Max(_plotLeft, _plotLeft + _plotWidth - tooltipWidth);
+        double left = Math.Clamp(point.X - tooltipWidth / 2, _plotLeft, maxLeft);
+        double top = point.Y - tooltipHeight - 10;
+        if (top < 0)
+            top = point.Y + 10;
+
+        Canvas.SetLeft(_tooltip, left);
+        Canvas.SetTop(_tooltip, top);
+    }
+
+    private void HideHover()
+    {
+        _hoverIndex = -1;
+        _hoverLine.Visibility = Visibility.Collapsed;
+        _hoverDot.Visibility = Visibility.Collapsed;
+        _tooltip.Visibility = Visibility.Collapsed;
     }
 
     private Brush CreateAreaBrush()
