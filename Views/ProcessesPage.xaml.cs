@@ -104,7 +104,9 @@ public sealed partial class ProcessesPage : Page
 
         try
         {
-            Clipboard.SetText(path);
+            var package = new DataPackage();
+            package.SetText(path);
+            Clipboard.SetContent(package);
             monitor.Processes.NotifyActionStatus("路径已复制");
         }
         catch (Exception)
