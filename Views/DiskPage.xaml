@@ -6,9 +6,10 @@
     xmlns:controls="using:WinUIApp.Controls"
     xmlns:vm="using:WinUIApp.ViewModels">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      HorizontalContentAlignment="Stretch">
-        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                    MaxWidth="1400" HorizontalAlignment="Stretch">
 
             <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 存储" Title="磁盘"
                                  Subtitle="驱动器容量、可用空间与实时读写速率">
@@ -42,16 +43,12 @@
                     <ProgressBar Value="{Binding Disk.TotalUsagePercent}" Maximum="100"
                                  Height="8" CornerRadius="4"
                                  Foreground="{ThemeResource DiskAccentBrush}" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <controls:ResponsivePanel MinItemWidth="120" MaxColumns="3" HorizontalSpacing="8"
+                                              VerticalSpacing="8">
                         <controls:StatTile Style="{StaticResource StatTileStyle}" Label="总容量" Value="{Binding Disk.TotalSizeText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="已用" Value="{Binding Disk.TotalUsedText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="剩余" Value="{Binding Disk.TotalFreeText}" />
-                    </Grid>
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="已用" Value="{Binding Disk.TotalUsedText}" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="剩余" Value="{Binding Disk.TotalFreeText}" />
+                    </controls:ResponsivePanel>
                 </StackPanel>
             </Border>
 
@@ -90,14 +87,10 @@
                                              Height="6" CornerRadius="3"
                                              Foreground="{ThemeResource DiskAccentBrush}" />
 
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                                <controls:ResponsivePanel MinItemWidth="150" MaxColumns="3" HorizontalSpacing="8"
+                                                          VerticalSpacing="8">
                                     <controls:StatTile Style="{StaticResource StatTileStyle}" Label="已用 / 总容量" Value="{Binding SizeText}" />
-                                    <Border Grid.Column="1" Style="{StaticResource NestedCardStyle}">
+                                    <Border Style="{StaticResource NestedCardStyle}">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon Glyph="&#xE896;" FontSize="11"
@@ -113,7 +106,7 @@
                                                        TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Border>
-                                    <Border Grid.Column="2" Style="{StaticResource NestedCardStyle}">
+                                    <Border Style="{StaticResource NestedCardStyle}">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon Glyph="&#xE898;" FontSize="11"
@@ -129,7 +122,7 @@
                                                        TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Border>
-                                </Grid>
+                                </controls:ResponsivePanel>
                             </StackPanel>
                         </Border>
                     </DataTemplate>

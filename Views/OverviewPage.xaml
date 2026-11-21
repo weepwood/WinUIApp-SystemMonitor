@@ -7,100 +7,12 @@
     xmlns:vm="using:WinUIApp.ViewModels">
 
     <Grid>
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="MetricLayout">
-                <VisualState x:Name="MetricWide">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="1440" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="CpuMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="MemoryMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="MemoryMetricCard.(Grid.Column)" Value="1" />
-                        <Setter Target="MemoryMetricCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="StorageMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="StorageMetricCard.(Grid.Column)" Value="2" />
-                        <Setter Target="StorageMetricCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="NetworkMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="NetworkMetricCard.(Grid.Column)" Value="3" />
-                        <Setter Target="NetworkMetricCard.(Grid.ColumnSpan)" Value="1" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="MetricMedium">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="820" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="CpuMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="MemoryMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="MemoryMetricCard.(Grid.Column)" Value="2" />
-                        <Setter Target="MemoryMetricCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="StorageMetricCard.(Grid.Row)" Value="2" />
-                        <Setter Target="StorageMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="StorageMetricCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="NetworkMetricCard.(Grid.Row)" Value="2" />
-                        <Setter Target="NetworkMetricCard.(Grid.Column)" Value="2" />
-                        <Setter Target="NetworkMetricCard.(Grid.ColumnSpan)" Value="2" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="MetricNarrow">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="CpuMetricCard.(Grid.Row)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="CpuMetricCard.(Grid.ColumnSpan)" Value="4" />
-                        <Setter Target="MemoryMetricCard.(Grid.Row)" Value="1" />
-                        <Setter Target="MemoryMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="MemoryMetricCard.(Grid.ColumnSpan)" Value="4" />
-                        <Setter Target="StorageMetricCard.(Grid.Row)" Value="2" />
-                        <Setter Target="StorageMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="StorageMetricCard.(Grid.ColumnSpan)" Value="4" />
-                        <Setter Target="NetworkMetricCard.(Grid.Row)" Value="3" />
-                        <Setter Target="NetworkMetricCard.(Grid.Column)" Value="0" />
-                        <Setter Target="NetworkMetricCard.(Grid.ColumnSpan)" Value="4" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
 
-            <VisualStateGroup x:Name="DetailLayout">
-                <VisualState x:Name="DetailWide">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="900" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="DeviceCard.(Grid.Row)" Value="0" />
-                        <Setter Target="DeviceCard.(Grid.Column)" Value="0" />
-                        <Setter Target="DeviceCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="DrivesCard.(Grid.Row)" Value="0" />
-                        <Setter Target="DrivesCard.(Grid.Column)" Value="1" />
-                        <Setter Target="DrivesCard.(Grid.ColumnSpan)" Value="1" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="DetailNarrow">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="DeviceCard.(Grid.Row)" Value="0" />
-                        <Setter Target="DeviceCard.(Grid.Column)" Value="0" />
-                        <Setter Target="DeviceCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="DrivesCard.(Grid.Row)" Value="2" />
-                        <Setter Target="DrivesCard.(Grid.Column)" Value="0" />
-                        <Setter Target="DrivesCard.(Grid.ColumnSpan)" Value="2" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
-
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+        <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
                       HorizontalContentAlignment="Stretch">
-            <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+            <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                        MaxWidth="1400" HorizontalAlignment="Stretch">
 
                 <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="本机监测" Title="性能总览" Subtitle="{Binding OverviewSubtitle}">
                     <controls:PageHeader.Content>
@@ -127,24 +39,13 @@
 
                 <InfoBar x:Name="CopyFeedback" IsOpen="False" IsClosable="True" />
 
-                <!-- 四个关键指标 -->
-                <Grid ColumnSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- 四个关键指标：按可用宽度自动 4 / 2 / 1 列，不再依赖窗口宽度断点 -->
+                <controls:ResponsivePanel MinItemWidth="260" MaxColumns="4" PreferEvenColumns="True"
+                                          HorizontalSpacing="12" VerticalSpacing="12">
 
                     <!-- CPU -->
-                    <Border x:Name="CpuMetricCard" Grid.Row="0" Grid.Column="0"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="CpuMetricCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="10">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
@@ -183,8 +84,8 @@
                     </Border>
 
                     <!-- 内存 -->
-                    <Border x:Name="MemoryMetricCard" Grid.Row="0" Grid.Column="1"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="MemoryMetricCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="10">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
@@ -224,8 +125,8 @@
                     </Border>
 
                     <!-- 存储 -->
-                    <Border x:Name="StorageMetricCard" Grid.Row="0" Grid.Column="2"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="StorageMetricCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="10">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
@@ -269,8 +170,8 @@
                     </Border>
 
                     <!-- 网络 -->
-                    <Border x:Name="NetworkMetricCard" Grid.Row="0" Grid.Column="3"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="NetworkMetricCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="10">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
@@ -312,22 +213,14 @@
                             </TextBlock>
                         </StackPanel>
                     </Border>
-                </Grid>
+                </controls:ResponsivePanel>
 
-                <!-- 设备与驱动器 -->
-                <Grid ColumnSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- 设备与驱动器：宽屏并排，窄屏堆叠 -->
+                <controls:ResponsivePanel MinItemWidth="340" MaxColumns="2"
+                                          HorizontalSpacing="12" VerticalSpacing="12">
 
-                    <Border x:Name="DeviceCard" Grid.Row="0" Grid.Column="0"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="DeviceCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
                                 <FontIcon Glyph="&#xE7F8;" FontSize="14"
@@ -342,8 +235,8 @@
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="DrivesCard" Grid.Row="0" Grid.Column="1"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="DrivesCard"
+                            Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
                                 <FontIcon Glyph="&#xEDA2;" FontSize="14"
@@ -375,7 +268,7 @@
                             </ItemsControl>
                         </StackPanel>
                     </Border>
-                </Grid>
+                </controls:ResponsivePanel>
 
                 <!-- 网络适配器 -->
                 <Border Style="{StaticResource MonitorCardStyle}">

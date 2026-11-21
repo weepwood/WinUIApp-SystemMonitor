@@ -223,34 +223,74 @@ public sealed class SystemInfoViewModel : BaseViewModel
     // Called on the UI thread after a slow process sample.
     public void ApplyProcessSnapshot(ProcessSnapshot snapshot)
     {
+        if (!IsOnUiThread)
+        {
+            RunOnUiThread(() => ApplyProcessSnapshot(snapshot));
+            return;
+        }
+
         ProcessCount = snapshot.ProcessCount;
         ThreadCount = snapshot.ThreadCount;
         HandleCount = snapshot.HandleCount;
         UpdateTopProcesses(snapshot.TopByMemory);
     }
 
+    /// <summary>
+    /// 进程快照变化频率远低于 CPU，但每次 Clear + 重新 Add 仍会重建整段列表，
+    /// 包括滚动位置。这里按 PID 复用行实例，只在顺序或数值变化时更新。
+    /// </summary>
     private void UpdateTopProcesses(IReadOnlyList<ProcessInfo> processes)
     {
         if (processes.Count == 0)
         {
-            TopProcesses.Clear();
+            if (TopProcesses.Count > 0)
+                TopProcesses.Clear();
             return;
         }
 
-        long max = processes.Max(p => p.WorkingSetBytes);
-        TopProcesses.Clear();
+        long max = 0;
+        for (int i = 0; i < processes.Count; i++)
+        {
+            if (processes[i].WorkingSetBytes > max)
+                max = processes[i].WorkingSetBytes;
+        }
+
         for (int i = 0; i < processes.Count; i++)
         {
             var process = processes[i];
-            TopProcesses.Add(new ProcessRowViewModel
+            double share = max > 0 ? process.WorkingSetBytes * 100.0 / max : 0;
+            string size = process.SizeText;
+
+            if (i < TopProcesses.Count
+                && TopProcesses[i].Id == process.Id
+                && TopProcesses[i].Matches(process.Name, size, share))
+            {
+                continue;
+            }
+
+            if (i < TopProcesses.Count && TopProcesses[i].Id == process.Id)
+            {
+                TopProcesses[i].Update(process.Name, size, share);
+                continue;
+            }
+
+            var row = new ProcessRowViewModel
             {
                 Rank = i + 1,
                 Name = process.Name,
                 Id = process.Id,
-                SizeText = process.SizeText,
-                SharePercent = max > 0 ? process.WorkingSetBytes * 100.0 / max : 0,
-            });
+                SizeText = size,
+                SharePercent = share,
+            };
+
+            if (i < TopProcesses.Count)
+                TopProcesses[i] = row;
+            else
+                TopProcesses.Add(row);
         }
+
+        while (TopProcesses.Count > processes.Count)
+            TopProcesses.RemoveAt(TopProcesses.Count - 1);
     }
 
     /// <summary>本应用自身的 CPU 与工作集，用于衡量监测开销。</summary>
@@ -259,6 +299,10 @@ public sealed class SystemInfoViewModel : BaseViewModel
         SelfOverheadText = $"{cpuPercent:0.00}% · {ProcessInfo.FormatBytes(workingSetBytes)}";
     }
 
+    /// <summary>
+    /// 运行时间每次采样都会变化；但文本只在秒级变化时才需要重新赋值，
+    /// 因此由 SetProperty 判断，避免每秒都触发一次文本重新布局。
+    /// </summary>
     public void UpdateUptime()
     {
         long totalSeconds = Environment.TickCount64 / 1000;
@@ -272,12 +316,54 @@ public sealed class SystemInfoViewModel : BaseViewModel
     }
 }
 
-public sealed class ProcessRowViewModel
+public sealed class ProcessRowViewModel : BaseViewModel
 {
-    public int Rank { get; set; }
-    public string RankText => Rank.ToString();
-    public string Name { get; set; } = string.Empty;
+    private int _rank;
+    public int Rank
+    {
+        get => _rank;
+        set
+        {
+            if (SetProperty(ref _rank, value))
+                OnPropertyChanged(nameof(RankText));
+        }
+    }
+
+    public string RankText => _rank.ToString();
+
+    private string _name = string.Empty;
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+
     public int Id { get; set; }
-    public string SizeText { get; set; } = string.Empty;
-    public double SharePercent { get; set; }
+
+    private string _sizeText = string.Empty;
+    public string SizeText
+    {
+        get => _sizeText;
+        set => SetProperty(ref _sizeText, value);
+    }
+
+    private double _sharePercent;
+    public double SharePercent
+    {
+        get => _sharePercent;
+        set => SetProperty(ref _sharePercent, value);
+    }
+
+    /// <summary>同一进程的数值都没变时跳过写回，避免无意义的绑定更新。</summary>
+    public bool Matches(string name, string sizeText, double share)
+        => _name == name
+        && _sizeText == sizeText
+        && Math.Abs(_sharePercent - share) < 0.01;
+
+    public void Update(string name, string sizeText, double share)
+    {
+        Name = name;
+        SizeText = sizeText;
+        SharePercent = share;
+    }
 }

@@ -26,6 +26,11 @@ public sealed class ArcGauge : UserControl
 
     private double _displayedFraction;
     private double _targetFraction;
+    private double _lastArcFraction = -1;
+    private double _lastRenderedDimension = -1;
+    private double _lastStrokeWidth = -1;
+    private Color _lastGaugeColor;
+    private bool _hasRenderedColor;
     private double _animationFrom;
     private TimeSpan _animationStart;
     private bool _isAnimating;
@@ -228,21 +233,49 @@ public sealed class ArcGauge : UserControl
         double startAngleRad = StartAngleDeg * Math.PI / 180.0;
         double sweepAngleRad = SweepAngleDeg * Math.PI / 180.0;
 
-        _trackArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);
-        _trackArc.StrokeThickness = strokeWidth;
+        // 尺寸、线宽与颜色只在实际变化时写入：动画期间每帧重复设置字号与边距
+        // 会让文本反复测量、布局，这正是原先仪表盘动画掉帧的原因。
+        bool geometryDirty = Math.Abs(minDim - _lastRenderedDimension) > 0.5
+            || Math.Abs(strokeWidth - _lastStrokeWidth) > 0.25;
 
+        if (geometryDirty)
+        {
+            _lastRenderedDimension = minDim;
+            _lastStrokeWidth = strokeWidth;
+
+            _trackArc.Data = CreateArcGeometry(centerX, centerY, radius, startAngleRad, sweepAngleRad);
+            _trackArc.StrokeThickness = strokeWidth;
+            _valueArc.StrokeThickness = strokeWidth;
+
+            _valueText.FontSize = Math.Max(16, minDim * 0.17);
+            _captionText.FontSize = Math.Max(10, minDim * 0.062);
+            _valueText.Margin = new Thickness(0, -minDim * 0.035, 0, 0);
+            _captionText.Margin = new Thickness(0, minDim * 0.115, 0, 0);
+
+            // 半径变化后必须重建数值弧，否则会继续沿用旧尺寸的几何。
+            _lastArcFraction = -1;
+        }
+
+        if (!_hasRenderedColor || GaugeColor != _lastGaugeColor)
+        {
+            _lastGaugeColor = GaugeColor;
+            _hasRenderedColor = true;
+            _valueBrush.Color = GaugeColor;
+        }
+
+        // 数值弧按 0.2% 的粒度重建：更细的变化在屏幕上不可见，却要多建一个几何。
         double pct = _displayedFraction;
-        double fillSweep = sweepAngleRad * pct;
-        _valueArc.Data = fillSweep > 0.0001
-            ? CreateArcGeometry(centerX, centerY, radius, startAngleRad, fillSweep)
-            : null;
-        _valueArc.StrokeThickness = strokeWidth;
-        _valueBrush.Color = GaugeColor;
+        bool empty = pct <= 0.0001;
+        bool unchanged = Math.Abs(pct - _lastArcFraction) < 0.002
+            && (empty ? _valueArc.Data is null : _valueArc.Data is not null);
+        if (unchanged)
+            return;
 
-        _valueText.FontSize = Math.Max(16, minDim * 0.17);
-        _captionText.FontSize = Math.Max(10, minDim * 0.062);
-        _valueText.Margin = new Thickness(0, -minDim * 0.035, 0, 0);
-        _captionText.Margin = new Thickness(0, minDim * 0.115, 0, 0);
+        _lastArcFraction = pct;
+        double fillSweep = sweepAngleRad * pct;
+        _valueArc.Data = empty
+            ? null
+            : CreateArcGeometry(centerX, centerY, radius, startAngleRad, fillSweep);
     }
 
     private static PathGeometry CreateArcGeometry(double cx, double cy, double radius, double startAngleRad, double sweepAngleRad)

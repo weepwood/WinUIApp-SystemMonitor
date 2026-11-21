@@ -6,9 +6,10 @@
     xmlns:controls="using:WinUIApp.Controls"
     xmlns:vm="using:WinUIApp.ViewModels">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      HorizontalContentAlignment="Stretch">
-        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                    MaxWidth="1400" HorizontalAlignment="Stretch">
 
             <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 网络" Title="网络"
                                  Subtitle="网卡状态、地址信息与实时上下行速率">
@@ -41,16 +42,12 @@
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Grid>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <controls:ResponsivePanel MinItemWidth="140" MaxColumns="3" HorizontalSpacing="8"
+                                              VerticalSpacing="8">
                         <controls:StatTile Style="{StaticResource StatTileStyle}" Label="总下载" Value="{Binding Network.DownloadFullText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="总上传" Value="{Binding Network.UploadText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="网卡" Value="{Binding Network.ActiveAdapterText}" />
-                    </Grid>
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="总上传" Value="{Binding Network.UploadText}" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="网卡" Value="{Binding Network.ActiveAdapterText}" />
+                    </controls:ResponsivePanel>
                 </StackPanel>
             </Border>
 
@@ -88,11 +85,8 @@
                                     </Border>
                                 </Grid>
 
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                                <controls:ResponsivePanel MinItemWidth="140" MaxColumns="2" HorizontalSpacing="8"
+                                                          VerticalSpacing="8">
                                     <Border Style="{StaticResource NestedCardStyle}">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -105,7 +99,7 @@
                                                        FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Border>
-                                    <Border Grid.Column="1" Style="{StaticResource NestedCardStyle}">
+                                    <Border Style="{StaticResource NestedCardStyle}">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon Glyph="&#xE898;" FontSize="11" VerticalAlignment="Center"
@@ -117,7 +111,7 @@
                                                        FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Border>
-                                </Grid>
+                                </controls:ResponsivePanel>
 
                                 <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="MAC 地址" Value="{Binding MacAddress}" Padding="0,2" />
                             </StackPanel>

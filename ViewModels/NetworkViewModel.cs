@@ -14,6 +14,9 @@ public class NetworkViewModel : BaseViewModel
 {
     private readonly NetworkService _service = new();
 
+    /// <summary>按适配器 Id 索引的实例缓存，避免每次采样都做一次线性查找。</summary>
+    private readonly Dictionary<string, NetworkItemViewModel> _byId = new(StringComparer.OrdinalIgnoreCase);
+
     public ObservableCollection<NetworkItemViewModel> Adapters { get; } = new();
 
     private double _totalDownloadMbps;
@@ -90,12 +93,24 @@ public class NetworkViewModel : BaseViewModel
 
     public void Apply(IReadOnlyList<NetworkInfo> networks)
     {
-        var activeAdapters = networks.Where(n => n.IsActive || !string.IsNullOrEmpty(n.Description)).ToList();
-
-        foreach (var net in activeAdapters)
+        if (!IsOnUiThread)
         {
-            var existing = Adapters.FirstOrDefault(a => a.AdapterName == net.AdapterName);
-            if (existing != null)
+            RunOnUiThread(() => Apply(networks));
+            return;
+        }
+
+        // 网卡数量通常是个位数，但每秒一次地 Where + ToList + ToHashSet +
+        // 逐项 FirstOrDefault 仍然会产生稳定的临时分配。这里改为单次遍历 + 索引缓存。
+        var present = new HashSet<string>(networks.Count, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < networks.Count; i++)
+        {
+            var net = networks[i];
+            if (!net.IsActive && string.IsNullOrEmpty(net.Description))
+                continue;
+
+            present.Add(net.AdapterName);
+
+            if (_byId.TryGetValue(net.AdapterName, out var existing))
             {
                 existing.Update(net);
             }
@@ -103,16 +118,19 @@ public class NetworkViewModel : BaseViewModel
             {
                 var vm = new NetworkItemViewModel();
                 vm.Update(net);
+                _byId[net.AdapterName] = vm;
                 Adapters.Add(vm);
             }
         }
 
-        // 清理已消失的适配器
-        var currentNames = activeAdapters.Select(n => n.AdapterName).ToHashSet();
+        // 清理已消失的适配器（从后往前，避免下标位移）。
         for (int i = Adapters.Count - 1; i >= 0; i--)
         {
-            if (!currentNames.Contains(Adapters[i].AdapterName))
-                Adapters.RemoveAt(i);
+            if (present.Contains(Adapters[i].AdapterName))
+                continue;
+
+            _byId.Remove(Adapters[i].AdapterName);
+            Adapters.RemoveAt(i);
         }
 
         RefreshAggregates();
@@ -120,8 +138,26 @@ public class NetworkViewModel : BaseViewModel
 
     private void RefreshAggregates()
     {
-        TotalDownloadMbps = Adapters.Sum(a => a.DownloadSpeedMbps);
-        TotalUploadMbps = Adapters.Sum(a => a.UploadSpeedMbps);
+        double download = 0;
+        double upload = 0;
+        int active = 0;
+        NetworkItemViewModel? primary = null;
+
+        foreach (var adapter in Adapters)
+        {
+            download += adapter.DownloadSpeedMbps;
+            upload += adapter.UploadSpeedMbps;
+            if (adapter.IsActive)
+            {
+                active++;
+                primary ??= adapter;
+            }
+
+            primary ??= adapter;
+        }
+
+        TotalDownloadMbps = download;
+        TotalUploadMbps = upload;
 
         var (value, unit) = HardwareInfoService.FormatSpeedParts(TotalDownloadMbps);
         DownloadValueText = value;
@@ -129,11 +165,9 @@ public class NetworkViewModel : BaseViewModel
         DownloadFullText = HardwareInfoService.FormatSpeed(TotalDownloadMbps);
         UploadText = HardwareInfoService.FormatSpeed(TotalUploadMbps);
 
-        int active = Adapters.Count(a => a.IsActive);
         ActiveAdapterText = $"{Adapters.Count} 个网卡 · {active} 个已连接";
         AdapterCountText = $"{active}/{Adapters.Count} 已连接";
-        PrimaryAdapterText = (Adapters.FirstOrDefault(a => a.IsActive) ?? Adapters.FirstOrDefault())?.Description
-            ?? "未检测到网卡";
+        PrimaryAdapterText = primary?.Description ?? "未检测到网卡";
         HasAdapters = Adapters.Count > 0;
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
@@ -153,6 +154,8 @@ public class MemoryViewModel : BaseViewModel
         NonPagedPoolGB = info.NonPagedPoolGB;
 
         History.Append(UsagePercent);
+
+        // 以下文本通过 SetProperty 写入：与上一拍相同时不会触发绑定更新。
         UsageText = $"{UsagePercent:0.0}%";
         UsageValueText = $"{UsagePercent:0.0}";
         TotalText = $"{TotalGB:0.0} GB";
@@ -162,6 +165,8 @@ public class MemoryViewModel : BaseViewModel
         CachedText = $"{CachedGB:0.0} GB";
         PagedPoolText = $"{PagedPoolGB:0.00} GB";
         NonPagedPoolText = $"{NonPagedPoolGB:0.00} GB";
-        AvailableOfTotalText = $"可用 {AvailableText} / {TotalText}";
+
+        string combined = $"可用 {AvailableText} / {TotalText}";
+        AvailableOfTotalText = combined;
     }
 }

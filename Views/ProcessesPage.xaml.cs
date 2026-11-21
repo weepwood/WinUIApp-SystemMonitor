@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.ApplicationModel.DataTransfer;
+using WinUIApp.Controls;
 using WinUIApp.ViewModels;
 
 namespace WinUIApp.Views;
@@ -18,6 +19,7 @@ public sealed partial class ProcessesPage : Page
     public ProcessesPage()
     {
         InitializeComponent();
+        PageSizing.Attach(ContentScroller, ContentPanel);
         Loaded += OnLoaded;
         Unloaded += (_, _) => ProcessViewChanged?.Invoke();
     }

@@ -47,7 +47,7 @@
                         PaneDisplayMode="Auto"
                         OpenPaneLength="224"
                         CompactPaneLength="52"
-                        ExpandedModeThresholdWidth="920"
+                        ExpandedModeThresholdWidth="880"
                         IsBackButtonVisible="Collapsed"
                         IsBackEnabled="False"
                         IsSettingsVisible="True"
@@ -111,7 +111,7 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="0,0,0,1"
                             Padding="20,12,20,10">
-                        <Grid ColumnSpacing="12">
+                        <Grid x:Name="CommandBarGrid" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -134,7 +134,8 @@
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"
                                                Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <Border Grid.Column="2" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    <Border x:Name="IntervalBadge" Grid.Column="2"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                             CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding IntervalText}" FontSize="11"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -146,8 +147,8 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                                        VerticalAlignment="Center">
+                            <StackPanel x:Name="CommandActions" Grid.Column="1" Orientation="Horizontal"
+                                        Spacing="8" VerticalAlignment="Center">
                                 <Button Click="OnRefreshNowClicked"
                                         ToolTipService.ToolTip="立即刷新 (F5)"
                                         AutomationProperties.Name="立即刷新监测数据">
@@ -158,7 +159,7 @@
                                         AutomationProperties.Name="暂停或恢复监测">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon Glyph="{Binding MonitoringActionGlyph}" FontSize="14" />
-                                        <TextBlock Text="{Binding MonitoringActionText}" />
+                                        <TextBlock x:Name="ToggleMonitoringLabel" Text="{Binding MonitoringActionText}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Click="OnOpenSettings" ToolTipService.ToolTip="设置 (Ctrl+,)"

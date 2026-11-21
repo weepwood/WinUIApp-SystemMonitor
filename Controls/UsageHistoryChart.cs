@@ -1,5 +1,6 @@
 using System;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls;
@@ -38,7 +39,12 @@ public sealed class UsageHistoryChart : UserControl
     private readonly SolidColorBrush _thresholdBrush = new();
     private readonly SolidColorBrush _lineBrush = new();
     private readonly SolidColorBrush _hoverBrush = new();
+    private readonly SolidColorBrush _tooltipBackground = new();
+    private readonly SolidColorBrush _tooltipBorder = new();
+    private readonly SolidColorBrush _tooltipForeground = new();
+    private readonly SolidColorBrush _hoverDotStroke = new();
     private AccessibilitySettings? _accessibility;
+    private bool _highContrastSubscribed;
     private readonly Line _hoverLine = new();
     private readonly Ellipse _hoverDot = new();
     private readonly Border _tooltip = new();
@@ -46,6 +52,21 @@ public sealed class UsageHistoryChart : UserControl
 
     private Point[] _plotPoints = Array.Empty<Point>();
     private float[] _plotValues = Array.Empty<float>();
+    private float[] _renderedData = Array.Empty<float>();
+    private int _renderedCapacity = -1;
+    private double _renderedWidth = -1;
+    private double _renderedHeight = -1;
+    private bool _renderedGrid = true;
+    private bool _renderedArea = true;
+    private bool _renderedThreshold;
+    private double _renderedThresholdValue = -1;
+    private Color _renderedAccent;
+    private Brush? _areaBrush;
+    private Color _areaBrushColor;
+    private RectangleGeometry? _clipGeometry;
+    private Rect _clipRect;
+    private bool _updateQueued;
+    private bool _hoverLayerVisible;
     private double _plotLeft;
     private double _plotTop;
     private double _plotWidth;
@@ -208,12 +229,16 @@ public sealed class UsageHistoryChart : UserControl
         _hoverDot.Width = 8;
         _hoverDot.Height = 8;
         _hoverDot.Fill = _lineBrush;
+        _hoverDot.Stroke = _hoverDotStroke;
         _hoverDot.StrokeThickness = 1.5;
         _hoverDot.Visibility = Visibility.Collapsed;
         _canvas.Children.Add(_hoverDot);
 
         _tooltipText.FontSize = 11;
         _tooltipText.FontWeight = FontWeights.SemiBold;
+        _tooltipText.Foreground = _tooltipForeground;
+        _tooltip.Background = _tooltipBackground;
+        _tooltip.BorderBrush = _tooltipBorder;
         _tooltip.Child = _tooltipText;
         _tooltip.CornerRadius = new CornerRadius(4);
         _tooltip.Padding = new Thickness(7, 3, 7, 3);
@@ -228,21 +253,19 @@ public sealed class UsageHistoryChart : UserControl
         PointerMoved += OnPointerMoved;
         PointerExited += (_, _) => HideHover();
 
-        try
-        {
-            _accessibility = new AccessibilitySettings();
-            _accessibility.HighContrastChanged += OnHighContrastChanged;
-        }
-        catch (Exception)
-        {
-            // 高对比度检测不可用时按普通主题绘制。
-        }
-        SizeChanged += (_, _) => UpdateChart();
+        // AccessibilitySettings 是 WinRT 对象，创建它的控件会被它的事件长期持有；
+        // 因此只在控件进入可视树时订阅，卸载时摘除，避免页面缓存后泄漏。
         Loaded += (_, _) =>
         {
+            SubscribeHighContrast(true);
             UpdateThemeBrushes();
             UpdateChart();
         };
+        Unloaded += (_, _) => SubscribeHighContrast(false);
+
+        // 拖动窗口边缘时 SizeChanged 会以帧率触发；每帧重建整条曲线没有必要。
+        // 这里合并到一次 UI 回调里，并且只在尺寸真的变化时才重绘。
+        SizeChanged += (_, _) => QueueUpdate();
         ActualThemeChanged += (_, _) =>
         {
             UpdateThemeBrushes();
@@ -250,6 +273,31 @@ public sealed class UsageHistoryChart : UserControl
         };
 
         UpdateThemeBrushes();
+    }
+
+    private void SubscribeHighContrast(bool subscribe)
+    {
+        if (subscribe == _highContrastSubscribed)
+            return;
+
+        try
+        {
+            if (subscribe)
+            {
+                _accessibility ??= new AccessibilitySettings();
+                _accessibility.HighContrastChanged += OnHighContrastChanged;
+            }
+            else if (_accessibility is not null)
+            {
+                _accessibility.HighContrastChanged -= OnHighContrastChanged;
+            }
+
+            _highContrastSubscribed = subscribe;
+        }
+        catch (Exception)
+        {
+            // 高对比度检测不可用时按普通主题绘制。
+        }
     }
 
     private void OnHighContrastChanged(AccessibilitySettings sender, object args)
@@ -260,6 +308,9 @@ public sealed class UsageHistoryChart : UserControl
 
     private void UpdateThemeBrushes()
     {
+        // 面积填充的透明度与高对比度策略相关，失效后按需重建。
+        _areaBrush = null;
+
         if (_accessibility?.HighContrast == true)
         {
             UpdateHighContrastBrushes();
@@ -272,14 +323,11 @@ public sealed class UsageHistoryChart : UserControl
         _thresholdBrush.Color = dark ? Color.FromArgb(255, 255, 193, 96) : Color.FromArgb(255, 194, 75, 0);
         _hoverBrush.Color = dark ? Color.FromArgb(120, 255, 255, 255) : Color.FromArgb(120, 0, 0, 0);
 
-        _tooltip.Background = new SolidColorBrush(
-            dark ? Color.FromArgb(242, 44, 44, 44) : Color.FromArgb(246, 252, 252, 252));
-        _tooltip.BorderBrush = new SolidColorBrush(
-            dark ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(24, 0, 0, 0));
-        _tooltipText.Foreground = new SolidColorBrush(
-            dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(235, 0, 0, 0));
-        _hoverDot.Stroke = new SolidColorBrush(
-            dark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 255, 255, 255));
+        // 复用画刷实例，只改颜色：每次新建 SolidColorBrush 都会让整个子树重新解析资源。
+        SetColor(_tooltipBackground, dark ? Color.FromArgb(242, 44, 44, 44) : Color.FromArgb(246, 252, 252, 252));
+        SetColor(_tooltipBorder, dark ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(24, 0, 0, 0));
+        SetColor(_tooltipForeground, dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(235, 0, 0, 0));
+        SetColor(_hoverDotStroke, dark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 255, 255, 255));
     }
 
     /// <summary>
@@ -296,10 +344,16 @@ public sealed class UsageHistoryChart : UserControl
         _thresholdBrush.Color = highlight;
         _hoverBrush.Color = WithAlpha(text, 190);
 
-        _tooltip.Background = new SolidColorBrush(window);
-        _tooltip.BorderBrush = new SolidColorBrush(text);
-        _tooltipText.Foreground = new SolidColorBrush(text);
-        _hoverDot.Stroke = new SolidColorBrush(window);
+        SetColor(_tooltipBackground, window);
+        SetColor(_tooltipBorder, text);
+        SetColor(_tooltipForeground, text);
+        SetColor(_hoverDotStroke, window);
+    }
+
+    private static void SetColor(SolidColorBrush brush, Color color)
+    {
+        if (brush.Color != color)
+            brush.Color = color;
     }
 
     private static Color FindSystemColor(string key, Color fallback)
@@ -312,6 +366,26 @@ public sealed class UsageHistoryChart : UserControl
     }
 
     private static Color WithAlpha(Color color, byte alpha) => Color.FromArgb(alpha, color.R, color.G, color.B);
+
+    /// <summary>
+    /// 合并同一帧内的多次重绘请求。窗口拖动时 SizeChanged 会在每个布局帧触发，
+    /// 直接重绘会让整条曲线（含 120 个贝塞尔段）被重复计算。
+    /// </summary>
+    private void QueueUpdate()
+    {
+        if (_updateQueued)
+            return;
+
+        _updateQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+        {
+            _updateQueued = false;
+            UpdateChart();
+        }))
+        {
+            _updateQueued = false;
+        }
+    }
 
     private void UpdateChart()
     {
@@ -331,33 +405,56 @@ public sealed class UsageHistoryChart : UserControl
         if (!double.IsFinite(chartWidth) || !double.IsFinite(chartHeight) || chartWidth <= 0 || chartHeight <= 0)
             return;
 
+        // 裁剪几何只在矩形变化时重建（WinUI 的 clip 由元素独占，不能跨元素共享）。
         var clipRect = new Rect(marginLeft, marginTop, chartWidth, chartHeight);
-        // WinUI's clip Geometry is element-owned; do not share one instance across Path elements.
-        _linePath.Clip = new RectangleGeometry { Rect = clipRect };
-        _areaPath.Clip = new RectangleGeometry { Rect = clipRect };
-        _endDot.Clip = null;
-
-        for (int i = 0; i < GridLineCount; i++)
+        if (_clipGeometry is null
+            || _clipRect.X != clipRect.X || _clipRect.Y != clipRect.Y
+            || _clipRect.Width != clipRect.Width || _clipRect.Height != clipRect.Height)
         {
-            double y = marginTop + chartHeight * i / (GridLineCount - 1.0);
-            var gridLine = _gridLines[i];
-            gridLine.X1 = marginLeft;
-            gridLine.Y1 = y;
-            gridLine.X2 = marginLeft + chartWidth;
-            gridLine.Y2 = y;
-            gridLine.Visibility = ShowGridLines ? Visibility.Visible : Visibility.Collapsed;
-
-            var label = _yLabels[i];
-            label.Text = $"{100 - i * 25}%";
-            label.Visibility = ShowGridLines ? Visibility.Visible : Visibility.Collapsed;
-            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(label, marginLeft - label.DesiredSize.Width - 6);
-            Canvas.SetTop(label, y - label.DesiredSize.Height / 2);
+            _clipRect = clipRect;
+            _clipGeometry = new RectangleGeometry { Rect = clipRect };
+            _linePath.Clip = _clipGeometry;
+            _areaPath.Clip = new RectangleGeometry { Rect = clipRect };
+            _endDot.Clip = null;
         }
+
+        // 悬停状态也要参与判定：隐藏后再显示时，路径仍然存在，
+        // 只需要把读数层重新定位，不必重算整条曲线。
+        bool layoutChanged = Math.Abs(width - _renderedWidth) > 0.5
+            || Math.Abs(height - _renderedHeight) > 0.5
+            || ShowGridLines != _renderedGrid
+            || ShowAreaFill != _renderedArea
+            || ShowThresholdLine != _renderedThreshold
+            || Math.Abs(Threshold - _renderedThresholdValue) > 0.01
+            || AccentColor != _renderedAccent
+            || Capacity != _renderedCapacity;
 
         var data = Data;
         int count = data?.Length ?? 0;
         bool hasData = count > 0;
+
+        // 数据未变、尺寸未变、选项未变：没有需要重画的像素，直接返回。
+        if (!layoutChanged && hasData && SameSeries(data!, _renderedData))
+        {
+            // 数据与布局都没变，仅同步悬停读数即可。
+            if (ShowTooltip && _hoverLayerVisible)
+                ShowHoverAt(_hoverIndex);
+            return;
+        }
+
+        if (layoutChanged)
+        {
+            _renderedWidth = width;
+            _renderedHeight = height;
+            _renderedGrid = ShowGridLines;
+            _renderedArea = ShowAreaFill;
+            _renderedThreshold = ShowThresholdLine;
+            _renderedThresholdValue = Threshold;
+            _renderedAccent = AccentColor;
+            _renderedCapacity = Capacity;
+
+            UpdateGridAndLabels(marginLeft, marginTop, chartWidth, chartHeight);
+        }
 
         _emptyHint.Visibility = hasData ? Visibility.Collapsed : Visibility.Visible;
         if (!hasData)
@@ -372,24 +469,11 @@ public sealed class UsageHistoryChart : UserControl
             _thresholdLabel.Visibility = Visibility.Collapsed;
             _plotPoints = Array.Empty<Point>();
             _plotValues = Array.Empty<float>();
+            _renderedData = Array.Empty<float>();
+            _renderedCapacity = -1;
             HideHover();
             return;
         }
-
-        // 阈值参考线
-        double threshold = Math.Clamp(Threshold, 0, 100);
-        double thresholdY = marginTop + chartHeight * (1.0 - threshold / 100.0);
-        _thresholdLine.X1 = marginLeft;
-        _thresholdLine.Y1 = thresholdY;
-        _thresholdLine.X2 = marginLeft + chartWidth;
-        _thresholdLine.Y2 = thresholdY;
-        _thresholdLine.Visibility = ShowThresholdLine ? Visibility.Visible : Visibility.Collapsed;
-
-        _thresholdLabel.Text = $"阈值 {threshold:0}%";
-        _thresholdLabel.Visibility = ShowThresholdLine ? Visibility.Visible : Visibility.Collapsed;
-        _thresholdLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        Canvas.SetLeft(_thresholdLabel, marginLeft + chartWidth - _thresholdLabel.DesiredSize.Width);
-        Canvas.SetTop(_thresholdLabel, thresholdY - _thresholdLabel.DesiredSize.Height - 1);
 
         int capacity = Math.Max(Capacity, 2);
         double stepX = chartWidth / (capacity - 1);
@@ -413,37 +497,21 @@ public sealed class UsageHistoryChart : UserControl
         _plotWidth = chartWidth;
         _plotHeight = chartHeight;
         _stepX = stepX;
+
         if (ShowTooltip && _hoverIndex >= 0 && _hoverIndex < count)
             ShowHoverAt(_hoverIndex);
         else
             HideHover();
 
-        var lineFigure = new PathFigure
-        {
-            StartPoint = points[0],
-            IsClosed = false,
-            IsFilled = false,
-        };
-        AppendSmoothSegments(lineFigure, points);
-        var lineGeometry = new PathGeometry();
-        lineGeometry.Figures.Add(lineFigure);
-        _linePath.Data = lineGeometry;
+        _linePath.Data = BuildSmoothGeometry(points, closed: false, areaBaseline: 0);
+        _lineBrush.Color = AccentColor;
+        _linePath.StrokeThickness = 2;
+        _linePath.Visibility = Visibility.Visible;
 
         if (ShowAreaFill)
         {
-            var areaFigure = new PathFigure
-            {
-                StartPoint = new Point(points[0].X, marginTop + chartHeight),
-                IsClosed = true,
-                IsFilled = true,
-            };
-            areaFigure.Segments.Add(new LineSegment { Point = points[0] });
-            AppendSmoothSegments(areaFigure, points);
-            areaFigure.Segments.Add(new LineSegment { Point = new Point(points[^1].X, marginTop + chartHeight) });
-            var areaGeometry = new PathGeometry();
-            areaGeometry.Figures.Add(areaFigure);
-            _areaPath.Data = areaGeometry;
-            _areaPath.Fill = CreateAreaBrush();
+            _areaPath.Data = BuildSmoothGeometry(points, closed: true, areaBaseline: marginTop + chartHeight);
+            _areaPath.Fill = GetAreaBrush();
             _areaPath.Visibility = Visibility.Visible;
         }
         else
@@ -451,14 +519,75 @@ public sealed class UsageHistoryChart : UserControl
             _areaPath.Visibility = Visibility.Collapsed;
         }
 
-        _lineBrush.Color = AccentColor;
-        _linePath.StrokeThickness = 2;
-        _linePath.Visibility = Visibility.Visible;
-
         Canvas.SetLeft(_endDot, points[^1].X - 3);
         Canvas.SetTop(_endDot, points[^1].Y - 3);
         _endDot.Visibility = Visibility.Visible;
+
+        // 记录本次绘制所用数值，用于下一次比较，避免重复重绘。
+        _renderedData = values;
     }
+
+    /// <summary>网格、刻度与阈值线只在尺寸或选项变化时重排。</summary>
+    private void UpdateGridAndLabels(double marginLeft, double marginTop, double chartWidth, double chartHeight)
+    {
+        for (int i = 0; i < GridLineCount; i++)
+        {
+            double y = marginTop + chartHeight * i / (GridLineCount - 1.0);
+            var gridLine = _gridLines[i];
+            gridLine.X1 = marginLeft;
+            gridLine.Y1 = y;
+            gridLine.X2 = marginLeft + chartWidth;
+            gridLine.Y2 = y;
+            gridLine.Visibility = ShowGridLines ? Visibility.Visible : Visibility.Collapsed;
+
+            var label = _yLabels[i];
+            label.Text = $"{100 - i * 25}%";
+            label.Visibility = ShowGridLines ? Visibility.Visible : Visibility.Collapsed;
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(label, marginLeft - label.DesiredSize.Width - 6);
+            Canvas.SetTop(label, y - label.DesiredSize.Height / 2);
+        }
+
+        double threshold = Math.Clamp(Threshold, 0, 100);
+        double thresholdY = marginTop + chartHeight * (1.0 - threshold / 100.0);
+        _thresholdLine.X1 = marginLeft;
+        _thresholdLine.Y1 = thresholdY;
+        _thresholdLine.X2 = marginLeft + chartWidth;
+        _thresholdLine.Y2 = thresholdY;
+        _thresholdLine.Visibility = ShowThresholdLine ? Visibility.Visible : Visibility.Collapsed;
+
+        _thresholdLabel.Text = $"阈值 {threshold:0}%";
+        _thresholdLabel.Visibility = ShowThresholdLine ? Visibility.Visible : Visibility.Collapsed;
+        _thresholdLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Canvas.SetLeft(_thresholdLabel, marginLeft + chartWidth - _thresholdLabel.DesiredSize.Width);
+        Canvas.SetTop(_thresholdLabel, thresholdY - _thresholdLabel.DesiredSize.Height - 1);
+    }
+
+    private static bool SameSeries(float[] current, float[] rendered)
+    {
+        if (current.Length != rendered.Length)
+            return false;
+
+        for (int i = 0; i < current.Length; i++)
+        {
+            if (Math.Abs(current[i] - rendered[i]) > 0.01f)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>面积画刷按强调色缓存，避免每次采样都新建一个渐变画刷。</summary>
+    private Brush GetAreaBrush()
+    {
+        if (_areaBrush is not null && _areaBrushColor == AccentColor)
+            return _areaBrush;
+
+        _areaBrushColor = AccentColor;
+        _areaBrush = CreateAreaBrush();
+        return _areaBrush;
+    }
+
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
@@ -493,6 +622,7 @@ public sealed class UsageHistoryChart : UserControl
         _hoverLine.Y1 = _plotTop;
         _hoverLine.Y2 = _plotTop + _plotHeight;
         _hoverLine.Visibility = Visibility.Visible;
+        _hoverLayerVisible = true;
 
         _hoverDot.Visibility = Visibility.Visible;
         Canvas.SetLeft(_hoverDot, point.X - _hoverDot.Width / 2);
@@ -517,6 +647,7 @@ public sealed class UsageHistoryChart : UserControl
     private void HideHover()
     {
         _hoverIndex = -1;
+        _hoverLayerVisible = false;
         _hoverLine.Visibility = Visibility.Collapsed;
         _hoverDot.Visibility = Visibility.Collapsed;
         _tooltip.Visibility = Visibility.Collapsed;
@@ -535,6 +666,32 @@ public sealed class UsageHistoryChart : UserControl
                 new GradientStop { Color = Color.FromArgb(4, color.R, color.G, color.B), Offset = 1 },
             },
         };
+    }
+
+    /// <summary>
+    /// 一次性构造平滑曲线几何。面积图在同一个 PathFigure 里闭合，
+    /// 避免为同一条曲线构造两份 Catmull-Rom 控制点。
+    /// </summary>
+    private static PathGeometry BuildSmoothGeometry(Point[] points, bool closed, double areaBaseline)
+    {
+        var figure = new PathFigure
+        {
+            StartPoint = closed ? new Point(points[0].X, areaBaseline) : points[0],
+            IsClosed = closed,
+            IsFilled = closed,
+        };
+
+        if (closed)
+            figure.Segments.Add(new LineSegment { Point = points[0] });
+
+        AppendSmoothSegments(figure, points);
+
+        if (closed)
+            figure.Segments.Add(new LineSegment { Point = new Point(points[^1].X, areaBaseline) });
+
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
     }
 
     /// <summary>使用 Catmull-Rom 样条把折线转换为平滑的三次贝塞尔曲线。</summary>

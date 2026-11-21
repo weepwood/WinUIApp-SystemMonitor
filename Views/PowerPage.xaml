@@ -6,9 +6,10 @@
     xmlns:controls="using:WinUIApp.Controls"
     Background="Transparent">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+    <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
                   HorizontalContentAlignment="Stretch">
-        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+        <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                    MaxWidth="1400" HorizontalAlignment="Stretch">
 
             <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 电源" Title="电源"
                                  Subtitle="{Binding Power.Summary}">
@@ -20,11 +21,9 @@
                 </controls:PageHeader.Content>
             </controls:PageHeader>
 
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- 电量环与供电状态：宽屏并排，窄屏堆叠 -->
+            <controls:ResponsivePanel MinItemWidth="320" MaxColumns="2" HorizontalSpacing="12"
+                                      VerticalSpacing="12">
 
                 <!-- 电量环 -->
                 <Border Style="{StaticResource MonitorCardStyle}">
@@ -46,23 +45,19 @@
                 </Border>
 
                 <!-- 供电与充电状态 -->
-                <Border Grid.Column="1" Style="{StaticResource MonitorCardStyle}">
+                <Border Style="{StaticResource MonitorCardStyle}">
                     <StackPanel Spacing="12">
                         <TextBlock Text="供电状态" Style="{StaticResource SectionHeaderTextBlockStyle}" />
 
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <controls:ResponsivePanel MinItemWidth="120" MaxColumns="3" HorizontalSpacing="8"
+                                                  VerticalSpacing="8">
                             <controls:StatTile Style="{StaticResource StatTileStyle}" Label="供电方式"
                                                Value="{Binding Power.PowerSourceText}" />
-                            <controls:StatTile Grid.Column="1" Style="{StaticResource StatTileStyle}" Label="充电状态"
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="充电状态"
                                                Value="{Binding Power.ChargingStatusText}" />
-                            <controls:StatTile Grid.Column="2" Style="{StaticResource StatTileStyle}" Label="电池"
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="电池"
                                                Value="{Binding Power.BatteryLevelText}" />
-                        </Grid>
+                        </controls:ResponsivePanel>
 
                         <StackPanel Spacing="2">
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="供电方式"
@@ -76,7 +71,7 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-            </Grid>
+            </controls:ResponsivePanel>
 
             <Border Style="{StaticResource MonitorCardStyle}">
                 <StackPanel Spacing="6">

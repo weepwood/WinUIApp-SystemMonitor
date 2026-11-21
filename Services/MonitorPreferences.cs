@@ -130,8 +130,10 @@ public sealed class MonitorPreferences
         if (ProcessFilterText.Length > 64)
             ProcessFilterText = ProcessFilterText[..64];
 
-        WindowWidth = Math.Clamp(WindowWidth, 760, 7680);
-        WindowHeight = Math.Clamp(WindowHeight, 520, 4320);
+        // 与 MainWindow.ApplyWindowSize 的最小尺寸保持一致，
+        // 这样手工编辑配置文件也不会得到比界面允许更小的窗口。
+        WindowWidth = Math.Clamp(WindowWidth, 640, 7680);
+        WindowHeight = Math.Clamp(WindowHeight, 480, 4320);
 
         CpuAlertThreshold = Math.Clamp(Math.Round(CpuAlertThreshold), 50, 99);
         MemoryAlertThreshold = Math.Clamp(Math.Round(MemoryAlertThreshold), 50, 99);

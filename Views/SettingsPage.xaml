@@ -5,9 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:WinUIApp.Controls">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      HorizontalContentAlignment="Stretch">
-        <StackPanel Padding="24,8,24,32" Spacing="8" MaxWidth="1000" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="8"
+                    MaxWidth="1000" HorizontalAlignment="Stretch">
 
             <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="工作区" Title="设置"
                                  Subtitle="所有更改立即生效，并在下次启动时沿用。偏好保存在本机用户配置目录中。"

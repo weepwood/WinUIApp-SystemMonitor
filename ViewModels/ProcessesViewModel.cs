@@ -20,6 +20,8 @@ public sealed class ProcessesViewModel : BaseViewModel
     private const double CpuSwapMargin = 1.5;       // 高出 1.5 个百分点才上移
 
     private IReadOnlyList<ProcessInfo> _snapshot = Array.Empty<ProcessInfo>();
+    private int _previousProcessCount;
+    private long _previousWorkingSet;
     private long _totalWorkingSetBytes;
     private string _searchText = string.Empty;
     private int _sortMode;
@@ -182,6 +184,17 @@ public sealed class ProcessesViewModel : BaseViewModel
 
     public void Apply(ProcessSnapshot snapshot)
     {
+        // 列表与排序都在 UI 线程完成：集合本身只能在 UI 线程修改，
+        // 而排序结果要落到 ListView 的行位置上。
+        if (!IsOnUiThread)
+        {
+            RunOnUiThread(() => Apply(snapshot));
+            return;
+        }
+
+        _previousProcessCount = _snapshot.Count;
+        _previousWorkingSet = _totalWorkingSetBytes;
+
         _snapshot = snapshot.Processes;
         _totalWorkingSetBytes = snapshot.TotalWorkingSetBytes;
         ActionStatusText = string.Empty;
@@ -255,7 +268,9 @@ public sealed class ProcessesViewModel : BaseViewModel
         else
             OnPropertyChanged(nameof(DetailsMemoryText));
 
-        OnPropertyChanged(nameof(Subtitle));
+        // 副标题由进程总数与合计内存组成，只有这两项变化时才需要重新绑定。
+        if (_previousProcessCount != _snapshot.Count || _previousWorkingSet != _totalWorkingSetBytes)
+            OnPropertyChanged(nameof(Subtitle));
     }
 
     /// <summary>比较：仅在「升序」语义下返回负值表示 a 排在 b 之前。</summary>
@@ -337,15 +352,33 @@ public sealed class ProcessesViewModel : BaseViewModel
                 Items.RemoveAt(i);
         }
 
+        // 原实现每行调用一次 Items.IndexOf，整体是 O(n²)（300 个进程约 9 万次比较）。
+        // 这里先用一次遍历建立「实例 → 下标」索引，再逐位校正顺序。
+        var positions = new Dictionary<ProcessItemViewModel, int>(Items.Count);
+        for (int i = 0; i < Items.Count; i++)
+            positions[Items[i]] = i;
+
         for (int i = 0; i < ordered.Count; i++)
         {
             var item = ordered[i];
-            int current = Items.IndexOf(item);
-
-            if (current < 0)
+            if (!positions.TryGetValue(item, out int current))
+            {
                 Items.Insert(i, item);
+                positions[item] = i;
+
+                // 插入后其余元素整体后移一位，只需要更新受影响的下标。
+                for (int j = i + 1; j < Items.Count; j++)
+                    positions[Items[j]] = j;
+            }
             else if (current != i)
+            {
                 Items.Move(current, i);
+
+                int from = Math.Min(current, i);
+                int to = Math.Max(current, i);
+                for (int j = from; j <= to; j++)
+                    positions[Items[j]] = j;
+            }
         }
     }
 
@@ -391,6 +424,10 @@ public sealed class ProcessItemViewModel : BaseViewModel
         _cpuPercent = info.CpuPercent;
         _threadCount = info.ThreadCount;
         _handleCount = info.HandleCount;
+        _memoryText = ProcessInfo.FormatBytes(info.WorkingSetBytes);
+        _cpuText = $"{info.CpuPercent:0.0}%";
+        _threadsText = info.ThreadCount.ToString();
+        _handlesText = info.HandleCount.ToString();
     }
 
     public int Id { get; }
@@ -409,11 +446,15 @@ public sealed class ProcessItemViewModel : BaseViewModel
         private set
         {
             if (SetProperty(ref _workingSetBytes, value, nameof(MemoryBytes)))
+            {
+                _memoryText = ProcessInfo.FormatBytes(value);
                 OnPropertyChanged(nameof(MemoryText));
+            }
         }
     }
 
-    public string MemoryText => ProcessInfo.FormatBytes(_workingSetBytes);
+    private string _memoryText;
+    public string MemoryText => _memoryText;
 
     private double _cpuPercent;
     public double CpuPercent
@@ -422,11 +463,15 @@ public sealed class ProcessItemViewModel : BaseViewModel
         private set
         {
             if (SetProperty(ref _cpuPercent, value, nameof(CpuPercent)))
+            {
+                _cpuText = $"{value:0.0}%";
                 OnPropertyChanged(nameof(CpuText));
+            }
         }
     }
 
-    public string CpuText => $"{_cpuPercent:0.0}%";
+    private string _cpuText;
+    public string CpuText => _cpuText;
 
     private int _threadCount;
     public int ThreadCount
@@ -435,11 +480,15 @@ public sealed class ProcessItemViewModel : BaseViewModel
         private set
         {
             if (SetProperty(ref _threadCount, value, nameof(ThreadCount)))
+            {
+                _threadsText = value.ToString();
                 OnPropertyChanged(nameof(ThreadsText));
+            }
         }
     }
 
-    public string ThreadsText => _threadCount.ToString();
+    private string _threadsText;
+    public string ThreadsText => _threadsText;
 
     private int _handleCount;
     public int HandleCount
@@ -448,11 +497,15 @@ public sealed class ProcessItemViewModel : BaseViewModel
         private set
         {
             if (SetProperty(ref _handleCount, value, nameof(HandleCount)))
+            {
+                _handlesText = value.ToString();
                 OnPropertyChanged(nameof(HandlesText));
+            }
         }
     }
 
-    public string HandlesText => _handleCount.ToString();
+    private string _handlesText;
+    public string HandlesText => _handlesText;
 
     private double _memorySharePercent;
     public double MemorySharePercent
@@ -472,8 +525,14 @@ public sealed class ProcessItemViewModel : BaseViewModel
 
     public void SetMemoryShare(long maxWorkingSetBytes)
     {
-        MemorySharePercent = maxWorkingSetBytes > 0
+        double share = maxWorkingSetBytes > 0
             ? _workingSetBytes * 100.0 / maxWorkingSetBytes
             : 0;
+
+        // 进度条只有 2 px 高，0.1% 的差异在屏幕上不可见，跳过以免整行重绘。
+        if (Math.Abs(share - _memorySharePercent) < 0.1)
+            return;
+
+        MemorySharePercent = share;
     }
 }
