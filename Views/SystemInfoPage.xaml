@@ -118,6 +118,8 @@
                             <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="句柄数" Value="{Binding SystemInfo.HandleCountText}" />
                             <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="3" Label="运行时间" Value="{Binding SystemInfo.Uptime}" />
                         </Grid>
+                        <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="本应用开销"
+                                          Value="{Binding SystemInfo.SelfOverheadText}" />
                     </StackPanel>
                 </Border>
 

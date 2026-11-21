@@ -3,27 +3,35 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
+using Windows.Foundation;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
 namespace WinUIApp.ViewModels;
 
 /// <summary>
-/// Serializes sampling, gathers data on a worker, and publishes snapshots on the UI dispatcher.
+/// 串联采样与界面。快采样（CPU / 内存 / 网络 / 电源 / 自身开销）与
+/// 慢采样（磁盘 / 静态系统信息 / 进程）使用两个独立计时器与采样槽，
+/// 慢采集不再拖慢每秒一次的界面刷新。
 /// </summary>
 public sealed class MainViewModel : BaseViewModel, IDisposable
 {
     private readonly DispatcherQueue _dispatcherQueue;
-    private DispatcherQueueTimer? _timer;
-    private bool _isSampling;
+    private readonly ProcessService _processService = new();
+    private readonly SelfMetricsService _selfMetrics = new();
+
+    private DispatcherQueueTimer? _fastTimer;
+    private DispatcherQueueTimer? _slowTimer;
+    private bool _isFastSampling;
+    private bool _isSlowSampling;
     private bool _disposed;
     private int _samplingGeneration;
+
     private DateTimeOffset? _lastPublished;
     public bool HasSample => _lastPublished.HasValue;
-    private DateTime _lastSlowSampleUtc = DateTime.MinValue;
+
     private int _slowIntervalSeconds = 5;
     private int _intervalSeconds = 1;
-    private readonly ProcessService _processService = new();
     private bool _isMonitoring;
     private string _statusText = "准备监测";
     private string _lastUpdatedText = "尚未更新";
@@ -120,21 +128,19 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     {
         if (_disposed) return;
 
-        _timer ??= _dispatcherQueue.CreateTimer();
-        _timer.Stop();
-        _timer.Tick -= OnTimerTick;
-        _timer.Tick += OnTimerTick;
-        _timer.Interval = TimeSpan.FromSeconds(_intervalSeconds);
-        _timer.Start();
+        _fastTimer = RestartTimer(_fastTimer, OnFastTick, TimeSpan.FromSeconds(_intervalSeconds));
+        _slowTimer = RestartTimer(_slowTimer, OnSlowTick, TimeSpan.FromSeconds(_slowIntervalSeconds));
 
         IsMonitoring = true;
         StatusText = $"监测中 · 每 {_intervalSeconds} 秒";
-        _ = RefreshAsync();
+        _ = FastRefreshAsync(force: true);
+        _ = SlowRefreshAsync(force: true);
     }
 
     public void PauseMonitoring()
     {
-        _timer?.Stop();
+        _fastTimer?.Stop();
+        _slowTimer?.Stop();
         _samplingGeneration++;
         IsMonitoring = false;
         StatusText = "已暂停";
@@ -144,16 +150,18 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     public void ResumeMonitoring()
     {
         if (_disposed) return;
-        if (_timer == null)
+        if (_fastTimer == null || _slowTimer == null)
         {
             StartMonitoring();
             return;
         }
 
-        _timer.Start();
+        _fastTimer.Start();
+        _slowTimer.Start();
         IsMonitoring = true;
         StatusText = $"监测中 · 每 {_intervalSeconds} 秒";
-        _ = RefreshAsync();
+        _ = FastRefreshAsync(force: true);
+        _ = SlowRefreshAsync(force: true);
     }
 
     public void ToggleMonitoring()
@@ -168,7 +176,8 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
     public void RefreshNow()
     {
         if (_disposed) return;
-        _ = RefreshAsync(force: true);
+        _ = FastRefreshAsync(force: true);
+        _ = SlowRefreshAsync(force: true);
     }
 
     public void SetRefreshInterval(int seconds)
@@ -176,8 +185,8 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         if (seconds is not (1 or 2 or 5 or 10)) return;
 
         _intervalSeconds = seconds;
-        if (_timer != null)
-            _timer.Interval = TimeSpan.FromSeconds(seconds);
+        if (_fastTimer != null)
+            _fastTimer.Interval = TimeSpan.FromSeconds(seconds);
 
         OnPropertyChanged(nameof(IntervalSeconds));
         OnPropertyChanged(nameof(IntervalText));
@@ -209,6 +218,9 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         if (preferences.ProcessSortMode is >= 0 and <= 3)
             Processes.SortMode = preferences.ProcessSortMode;
 
+        if (_slowTimer != null)
+            _slowTimer.Interval = TimeSpan.FromSeconds(_slowIntervalSeconds);
+
         _cpuAlertEnabled = preferences.CpuAlertEnabled;
         _memoryAlertEnabled = preferences.MemoryAlertEnabled;
         _cpuAlertThreshold = preferences.CpuAlertThreshold;
@@ -219,32 +231,43 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
             CloseAlert();
     }
 
-    private void OnTimerTick(DispatcherQueueTimer sender, object args)
+    private DispatcherQueueTimer RestartTimer(
+        DispatcherQueueTimer? timer,
+        TypedEventHandler<DispatcherQueueTimer, object> handler,
+        TimeSpan interval)
     {
-        _ = RefreshAsync();
+        timer ??= _dispatcherQueue.CreateTimer();
+        timer.Stop();
+        timer.Tick -= handler;
+        timer.Tick += handler;
+        timer.Interval = interval;
+        timer.Start();
+        return timer;
     }
 
-    private async Task RefreshAsync(bool force = false)
+    private void OnFastTick(DispatcherQueueTimer sender, object args) => _ = FastRefreshAsync();
+
+    private void OnSlowTick(DispatcherQueueTimer sender, object args) => _ = SlowRefreshAsync();
+
+    /// <summary>轻量指标：每次采样间隔刷新一次。</summary>
+    private async Task FastRefreshAsync(bool force = false)
     {
-        if (_disposed || _isSampling) return;
+        if (_disposed || _isFastSampling) return;
         if (!force && (!IsMonitoring || ShouldSkipSampling?.Invoke() == true)) return;
-        _isSampling = true;
+        _isFastSampling = true;
         int generation = _samplingGeneration;
 
-        // CPU / memory / network are lightweight samples relative to disk and process enumeration.
-        // Slow metrics are sampled at most once every five seconds.
-        bool collectSlow = DateTime.UtcNow - _lastSlowSampleUtc >= TimeSpan.FromSeconds(_slowIntervalSeconds);
-        int topProcessCount = SystemInfo.TopProcessCount;
         try
         {
-            var snapshot = await Task.Run(() => new Snapshot(
-                Cpu.Capture(),
-                Memory.Capture(),
-                Network.Capture(),
-                PowerService.GetStatus(),
-                collectSlow ? Disk.Capture() : null,
-                collectSlow ? SystemInfo.Capture() : null,
-                collectSlow ? _processService.Capture(topProcessCount) : null));
+            var snapshot = await Task.Run(() =>
+            {
+                var cpu = Cpu.Capture();
+                var memory = Memory.Capture();
+                var network = Network.Capture();
+                var power = PowerService.GetStatus();
+                var self = _selfMetrics.Sample();
+                return new FastSnapshot(cpu, memory, network, power, self.CpuPercent, self.WorkingSetBytes);
+            });
 
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
@@ -255,25 +278,9 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                     Memory.Apply(snapshot.Memory);
                     Network.Apply(snapshot.Network);
                     Power.Apply(snapshot.Power);
-                    if (snapshot.Disks != null) Disk.Apply(snapshot.Disks);
-                    if (snapshot.System != null) SystemInfo.ApplyStatic(snapshot.System);
-                    if (snapshot.Processes != null)
-                    {
-                        SystemInfo.ApplyProcessSnapshot(snapshot.Processes);
-                        Processes.Apply(snapshot.Processes);
-                    }
+                    SystemInfo.ApplySelfMetrics(snapshot.SelfCpuPercent, snapshot.SelfWorkingSetBytes);
                     SystemInfo.UpdateUptime();
-
-                    if (collectSlow) _lastSlowSampleUtc = DateTime.UtcNow;
-                    bool firstSample = !HasSample;
-                    _lastPublished = DateTimeOffset.Now;
-                    LastUpdatedText = $"更新于 {_lastPublished:HH:mm:ss}";
-                    OnPropertyChanged(nameof(OverviewSubtitle));
-                    if (firstSample) OnPropertyChanged(nameof(HasSample));
-                    if (IsMonitoring)
-                        StatusText = $"监测中 · 每 {_intervalSeconds} 秒";
-
-                    EvaluateAlerts();
+                    Publish();
                 }
                 catch (Exception ex)
                 {
@@ -281,20 +288,85 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                 }
                 finally
                 {
-                    _isSampling = false;
+                    _isFastSampling = false;
                 }
             }))
-                _isSampling = false;
+                _isFastSampling = false;
         }
         catch (Exception ex)
         {
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
-                if (!_disposed && generation == _samplingGeneration) StatusText = $"采集失败：{ex.Message}";
-                _isSampling = false;
+                if (!_disposed && generation == _samplingGeneration)
+                    StatusText = $"采集失败：{ex.Message}";
+                _isFastSampling = false;
             }))
-                _isSampling = false;
+                _isFastSampling = false;
         }
+    }
+
+    /// <summary>重量指标：磁盘、静态系统信息与进程列表，按慢采样间隔刷新。</summary>
+    private async Task SlowRefreshAsync(bool force = false)
+    {
+        if (_disposed || _isSlowSampling) return;
+        if (!force && (!IsMonitoring || ShouldSkipSampling?.Invoke() == true)) return;
+        _isSlowSampling = true;
+        int generation = _samplingGeneration;
+        int topProcessCount = SystemInfo.TopProcessCount;
+
+        try
+        {
+            var snapshot = await Task.Run(() => new SlowSnapshot(
+                Disk.Capture(),
+                SystemInfo.Capture(),
+                _processService.Capture(topProcessCount)));
+
+            if (!_dispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    if (_disposed || generation != _samplingGeneration) return;
+                    Disk.Apply(snapshot.Disks);
+                    SystemInfo.ApplyStatic(snapshot.System);
+                    SystemInfo.ApplyProcessSnapshot(snapshot.Processes);
+                    Processes.Apply(snapshot.Processes);
+                    Publish();
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"显示更新失败：{ex.Message}";
+                }
+                finally
+                {
+                    _isSlowSampling = false;
+                }
+            }))
+                _isSlowSampling = false;
+        }
+        catch (Exception ex)
+        {
+            if (!_dispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_disposed && generation == _samplingGeneration)
+                    StatusText = $"采集失败：{ex.Message}";
+                _isSlowSampling = false;
+            }))
+                _isSlowSampling = false;
+        }
+    }
+
+    private void Publish()
+    {
+        bool firstSample = !HasSample;
+        _lastPublished = DateTimeOffset.Now;
+        LastUpdatedText = $"更新于 {_lastPublished:HH:mm:ss}";
+        OnPropertyChanged(nameof(OverviewSubtitle));
+        if (firstSample)
+            OnPropertyChanged(nameof(HasSample));
+        if (IsMonitoring)
+            StatusText = $"监测中 · 每 {_intervalSeconds} 秒";
+
+        EvaluateAlerts();
     }
 
     private void EvaluateAlerts()
@@ -351,16 +423,23 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
             text.AppendLine($"磁盘 {drive.DriveName}：{drive.SizeText}");
         foreach (var adapter in Network.Adapters)
             text.AppendLine($"网络 {adapter.AdapterName}：下载 {adapter.DownloadAmountText}，上传 {adapter.UploadAmountText}");
+        text.AppendLine($"监测开销：{SystemInfo.SelfOverheadText}");
         return text.ToString().TrimEnd();
     }
 
     public void StopMonitoring()
     {
         _disposed = true;
-        _timer?.Stop();
-        if (_timer != null)
-            _timer.Tick -= OnTimerTick;
-        _timer = null;
+        _fastTimer?.Stop();
+        _slowTimer?.Stop();
+
+        if (_fastTimer != null)
+            _fastTimer.Tick -= OnFastTick;
+        if (_slowTimer != null)
+            _slowTimer.Tick -= OnSlowTick;
+
+        _fastTimer = null;
+        _slowTimer = null;
         IsMonitoring = false;
     }
 
@@ -370,12 +449,16 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private sealed record Snapshot(
+    private sealed record FastSnapshot(
         CpuInfo Cpu,
         MemoryInfo Memory,
         List<NetworkInfo> Network,
         PowerStatus Power,
-        List<DiskInfo>? Disks,
-        WinUIApp.Models.SystemInfo? System,
-        ProcessSnapshot? Processes);
+        float SelfCpuPercent,
+        long SelfWorkingSetBytes);
+
+    private sealed record SlowSnapshot(
+        List<DiskInfo> Disks,
+        WinUIApp.Models.SystemInfo System,
+        ProcessSnapshot Processes);
 }

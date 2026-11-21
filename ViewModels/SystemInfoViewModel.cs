@@ -94,6 +94,13 @@ public sealed class SystemInfoViewModel : BaseViewModel
 
     public string HandleCountText => HandleCount > 0 ? HandleCount.ToString("N0") : "—";
 
+    private string _selfOverheadText = "—";
+    public string SelfOverheadText
+    {
+        get => _selfOverheadText;
+        private set => SetProperty(ref _selfOverheadText, value);
+    }
+
     private int _topProcessCount = 5;
     public int TopProcessCount
     {
@@ -244,6 +251,12 @@ public sealed class SystemInfoViewModel : BaseViewModel
                 SharePercent = max > 0 ? process.WorkingSetBytes * 100.0 / max : 0,
             });
         }
+    }
+
+    /// <summary>本应用自身的 CPU 与工作集，用于衡量监测开销。</summary>
+    public void ApplySelfMetrics(float cpuPercent, long workingSetBytes)
+    {
+        SelfOverheadText = $"{cpuPercent:0.00}% · {ProcessInfo.FormatBytes(workingSetBytes)}";
     }
 
     public void UpdateUptime()
