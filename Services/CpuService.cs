@@ -12,7 +12,7 @@ namespace WinUIApp.Services;
 /// </summary>
 public class CpuService
 {
-    private const int SystemProcessorPerformanceInformation = 8;
+    private const int ProcessorPerformanceInformationClass = 8;
     private const int ProcessorInformationLevel = 11;
 
     private bool _useWmiFallback;
@@ -138,7 +138,7 @@ public class CpuService
         }
 
         int status = NtQuerySystemInformation(
-            SystemProcessorPerformanceInformation, _coreBuffer, _coreBufferSize, out _);
+            ProcessorPerformanceInformationClass, _coreBuffer, _coreBufferSize, out _);
 
         if (status != 0)
             return;

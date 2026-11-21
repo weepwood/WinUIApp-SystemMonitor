@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
+using Windows.Foundation;
 using WinUIApp.Models;
 using WinUIApp.Services;
 
@@ -232,7 +233,7 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
 
     private DispatcherQueueTimer RestartTimer(
         DispatcherQueueTimer? timer,
-        DispatcherQueueTimer.TickEventHandler handler,
+        TypedEventHandler<DispatcherQueueTimer, object> handler,
         TimeSpan interval)
     {
         timer ??= _dispatcherQueue.CreateTimer();
