@@ -58,9 +58,12 @@ public class CpuViewModel : BaseViewModel
         set => SetProperty(ref _clockSpeedText, value);
     }
 
+    /// <summary>每核心使用率；只在核心数变化时重建集合，之后原地更新。</summary>
     public ObservableCollection<CoreUsageItem> PerCoreUsage { get; } = new();
 
     public UsageHistory History { get; } = new();
+
+    private bool _staticPublished;
 
     // Hardware queries run on the sampling worker, never on the UI thread.
     public CpuInfo Capture()
@@ -75,13 +78,19 @@ public class CpuViewModel : BaseViewModel
     // Called only on the UI dispatcher.
     public void Apply(CpuInfo info)
     {
-        OnPropertyChanged(nameof(Name));
-        OnPropertyChanged(nameof(DisplayName));
-        OnPropertyChanged(nameof(CoreCount));
-        OnPropertyChanged(nameof(LogicalProcessorCount));
-        OnPropertyChanged(nameof(CoreCountText));
-        OnPropertyChanged(nameof(LogicalProcessorCountText));
-        OnPropertyChanged(nameof(HardwareSummary));
+        // 静态信息只发布一次，避免每秒重复通知 7 个不会变化的属性。
+        if (!_staticPublished && info.LogicalProcessorCount > 0)
+        {
+            _staticPublished = true;
+            OnPropertiesChanged(
+                nameof(Name),
+                nameof(DisplayName),
+                nameof(CoreCount),
+                nameof(LogicalProcessorCount),
+                nameof(CoreCountText),
+                nameof(LogicalProcessorCountText),
+                nameof(HardwareSummary));
+        }
 
         UsagePercent = (float)Math.Round(info.UsagePercent, 1);
         UsageText = $"{UsagePercent:0.0}%";

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.ApplicationModel.DataTransfer;
+using WinUIApp.Controls;
 using WinUIApp.Services;
 
 namespace WinUIApp.Views;
@@ -20,6 +21,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        PageSizing.Attach(ContentScroller, ContentPanel);
         UpdateAboutInfo();
     }
 

@@ -7,40 +7,11 @@
     xmlns:vm="using:WinUIApp.ViewModels">
 
     <Grid>
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="InfoLayout">
-                <VisualState x:Name="InfoWide">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="900" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="OsCard.(Grid.Row)" Value="0" />
-                        <Setter Target="OsCard.(Grid.Column)" Value="0" />
-                        <Setter Target="OsCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="FirmwareCard.(Grid.Row)" Value="0" />
-                        <Setter Target="FirmwareCard.(Grid.Column)" Value="1" />
-                        <Setter Target="FirmwareCard.(Grid.ColumnSpan)" Value="1" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="InfoNarrow">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="OsCard.(Grid.Row)" Value="0" />
-                        <Setter Target="OsCard.(Grid.Column)" Value="0" />
-                        <Setter Target="OsCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="FirmwareCard.(Grid.Row)" Value="2" />
-                        <Setter Target="FirmwareCard.(Grid.Column)" Value="0" />
-                        <Setter Target="FirmwareCard.(Grid.ColumnSpan)" Value="2" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+        <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
                       HorizontalContentAlignment="Stretch">
-            <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+            <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                        MaxWidth="1400" HorizontalAlignment="Stretch">
 
                 <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="系统" Title="系统信息" Subtitle="{Binding SystemInfo.MachineName}">
                     <controls:PageHeader.Content>
@@ -53,19 +24,11 @@
                     </controls:PageHeader.Content>
                 </controls:PageHeader>
 
-                <Grid ColumnSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- 系统与固件：宽屏并排，窄屏堆叠 -->
+                <controls:ResponsivePanel MinItemWidth="340" MaxColumns="2"
+                                          HorizontalSpacing="12" VerticalSpacing="12">
 
-                    <Border x:Name="OsCard" Grid.Row="0" Grid.Column="0"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="OsCard" Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="4">
                             <TextBlock Text="操作系统" Style="{StaticResource SectionHeaderTextBlockStyle}"
                                        Margin="0,0,0,4" />
@@ -78,8 +41,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="FirmwareCard" Grid.Row="0" Grid.Column="1"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="FirmwareCard" Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="4">
                             <TextBlock Text="固件、主板与显卡" Style="{StaticResource SectionHeaderTextBlockStyle}"
                                        Margin="0,0,0,4" />
@@ -91,23 +53,18 @@
                             <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="显卡驱动" Value="{Binding SystemInfo.GraphicsDriver}" />
                         </StackPanel>
                     </Border>
-                </Grid>
+                </controls:ResponsivePanel>
 
                 <Border Style="{StaticResource MonitorCardStyle}">
                     <StackPanel Spacing="12">
                         <TextBlock Text="系统统计" Style="{StaticResource SectionHeaderTextBlockStyle}" />
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <controls:ResponsivePanel MinItemWidth="150" MaxColumns="4" HorizontalSpacing="8"
+                                                  VerticalSpacing="8">
                             <controls:StatTile Style="{StaticResource StatTileStyle}" Label="进程数" Value="{Binding SystemInfo.ProcessCountText}" />
-                            <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="线程数" Value="{Binding SystemInfo.ThreadCountText}" />
-                            <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="句柄数" Value="{Binding SystemInfo.HandleCountText}" />
-                            <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="3" Label="运行时间" Value="{Binding SystemInfo.Uptime}" />
-                        </Grid>
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="线程数" Value="{Binding SystemInfo.ThreadCountText}" />
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="句柄数" Value="{Binding SystemInfo.HandleCountText}" />
+                            <controls:StatTile Style="{StaticResource StatTileStyle}" Label="运行时间" Value="{Binding SystemInfo.Uptime}" />
+                        </controls:ResponsivePanel>
                         <controls:InfoRow Style="{StaticResource InfoRowStyle}" Label="本应用开销"
                                           Value="{Binding SystemInfo.SelfOverheadText}" />
                     </StackPanel>
@@ -133,7 +90,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="24" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <Border Width="24" Height="24" CornerRadius="12"
@@ -154,6 +111,7 @@
                                         </StackPanel>
                                         <ProgressBar Grid.Column="2" Value="{Binding SharePercent}" Maximum="100"
                                                      Height="4" CornerRadius="2" VerticalAlignment="Center"
+                                                     MinWidth="48" MaxWidth="120" Width="120"
                                                      Foreground="{ThemeResource CpuAccentBrush}" />
                                         <TextBlock Grid.Column="3" Text="{Binding SizeText}" FontSize="12"
                                                    FontWeight="SemiBold" VerticalAlignment="Center"

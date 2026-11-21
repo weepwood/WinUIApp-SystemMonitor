@@ -2,6 +2,7 @@ using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
+using WinUIApp.Controls;
 using WinUIApp.ViewModels;
 
 namespace WinUIApp.Views;
@@ -11,6 +12,9 @@ public sealed partial class OverviewPage : Page
     public OverviewPage()
     {
         InitializeComponent();
+
+        // 页面留白随窗口宽度收缩，窄窗口下把空间让给内容。
+        PageSizing.Attach(ContentScroller, ContentPanel);
     }
 
     private void OnCopySummary(object sender, RoutedEventArgs e)

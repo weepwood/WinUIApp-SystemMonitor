@@ -6,40 +6,11 @@
     xmlns:controls="using:WinUIApp.Controls">
 
     <Grid>
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="MemoryLayout">
-                <VisualState x:Name="MemoryWide">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="900" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="GaugeCard.(Grid.Row)" Value="0" />
-                        <Setter Target="GaugeCard.(Grid.Column)" Value="0" />
-                        <Setter Target="GaugeCard.(Grid.ColumnSpan)" Value="1" />
-                        <Setter Target="DetailCard.(Grid.Row)" Value="0" />
-                        <Setter Target="DetailCard.(Grid.Column)" Value="1" />
-                        <Setter Target="DetailCard.(Grid.ColumnSpan)" Value="1" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="MemoryNarrow">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="GaugeCard.(Grid.Row)" Value="0" />
-                        <Setter Target="GaugeCard.(Grid.Column)" Value="0" />
-                        <Setter Target="GaugeCard.(Grid.ColumnSpan)" Value="2" />
-                        <Setter Target="DetailCard.(Grid.Row)" Value="2" />
-                        <Setter Target="DetailCard.(Grid.Column)" Value="0" />
-                        <Setter Target="DetailCard.(Grid.ColumnSpan)" Value="2" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+        <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
                       HorizontalContentAlignment="Stretch">
-            <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+            <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                        MaxWidth="1400" HorizontalAlignment="Stretch">
 
                 <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 内存" Title="内存"
                                      Subtitle="{Binding Memory.AvailableOfTotalText}">
@@ -55,20 +26,12 @@
                     </controls:PageHeader.Content>
                 </controls:PageHeader>
 
-                <Grid ColumnSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- 仪表盘与明细：宽屏并排，窄屏堆叠 -->
+                <controls:ResponsivePanel MinItemWidth="320" MaxColumns="2"
+                                          HorizontalSpacing="12" VerticalSpacing="12">
 
                     <!-- 使用率环 -->
-                    <Border x:Name="GaugeCard" Grid.Row="0" Grid.Column="0"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="GaugeCard" Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="8" HorizontalAlignment="Center">
                             <TextBlock Text="物理内存使用率" Style="{StaticResource SectionHeaderTextBlockStyle}"
                                        HorizontalAlignment="Center" />
@@ -87,8 +50,7 @@
                     </Border>
 
                     <!-- 明细 -->
-                    <Border x:Name="DetailCard" Grid.Row="0" Grid.Column="1"
-                            Style="{StaticResource MonitorCardStyle}" Margin="0,0,0,12">
+                    <Border x:Name="DetailCard" Style="{StaticResource MonitorCardStyle}">
                         <StackPanel Spacing="4">
                             <TextBlock Text="内存明细" Style="{StaticResource SectionHeaderTextBlockStyle}"
                                        Margin="0,0,0,6" />
@@ -105,7 +67,7 @@
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
                     </Border>
-                </Grid>
+                </controls:ResponsivePanel>
 
                 <!-- 趋势 -->
                 <Border Style="{StaticResource MonitorCardStyle}">

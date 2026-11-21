@@ -250,7 +250,14 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
 
     private void OnSlowTick(DispatcherQueueTimer sender, object args) => _ = SlowRefreshAsync();
 
-    /// <summary>轻量指标：每次采样间隔刷新一次。</summary>
+    /// <summary>
+    /// 轻量指标：每次采样间隔刷新一次。
+    /// <para>
+    /// 采集在后台线程完成，并且把「应用快照」也放在后台线程：
+    /// 各 ViewModel 的属性写入会先比较值，只有变化时才切回 UI 线程发通知。
+    /// 因此空闲时不产生任何 UI 线程工作，忙时也只更新真正变化的读数。
+    /// </para>
+    /// </summary>
     private async Task FastRefreshAsync(bool force = false)
     {
         if (_disposed || _isFastSampling) return;
@@ -270,39 +277,45 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                 return new FastSnapshot(cpu, memory, network, power, self.CpuPercent, self.WorkingSetBytes);
             });
 
+            if (_disposed || generation != _samplingGeneration)
+            {
+                _isFastSampling = false;
+                return;
+            }
+
+            // 标量属性在后台线程写入：值没变就不会产生任何 UI 线程工作。
+            Cpu.Apply(snapshot.Cpu);
+            Memory.Apply(snapshot.Memory);
+            Power.Apply(snapshot.Power);
+            SystemInfo.ApplySelfMetrics(snapshot.SelfCpuPercent, snapshot.SelfWorkingSetBytes);
+            SystemInfo.UpdateUptime();
+
+            // 集合（网卡列表）只能在 UI 线程修改，交给按需调度的 Apply。
+            Network.Apply(snapshot.Network);
+
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
-                try
-                {
-                    if (_disposed || generation != _samplingGeneration) return;
-                    Cpu.Apply(snapshot.Cpu);
-                    Memory.Apply(snapshot.Memory);
-                    Network.Apply(snapshot.Network);
-                    Power.Apply(snapshot.Power);
-                    SystemInfo.ApplySelfMetrics(snapshot.SelfCpuPercent, snapshot.SelfWorkingSetBytes);
-                    SystemInfo.UpdateUptime();
-                    Publish();
-                }
-                catch (Exception ex)
-                {
-                    StatusText = $"显示更新失败：{ex.Message}";
-                }
-                finally
-                {
-                    _isFastSampling = false;
-                }
-            }))
                 _isFastSampling = false;
+                if (_disposed || generation != _samplingGeneration)
+                    return;
+
+                Publish();
+            }))
+            {
+                _isFastSampling = false;
+            }
         }
         catch (Exception ex)
         {
+            _isFastSampling = false;
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
                 if (!_disposed && generation == _samplingGeneration)
                     StatusText = $"采集失败：{ex.Message}";
-                _isFastSampling = false;
             }))
-                _isFastSampling = false;
+            {
+                // 调度队列已关闭（窗口正在关闭），无需再报错。
+            }
         }
     }
 
@@ -322,37 +335,41 @@ public sealed class MainViewModel : BaseViewModel, IDisposable
                 SystemInfo.Capture(),
                 _processService.Capture(topProcessCount)));
 
+            if (_disposed || generation != _samplingGeneration)
+            {
+                _isSlowSampling = false;
+                return;
+            }
+
+            // 磁盘 / 网卡 / 进程集合在 UI 线程更新，静态文本在后台线程写入。
+            Disk.Apply(snapshot.Disks);
+            SystemInfo.ApplyStatic(snapshot.System);
+            SystemInfo.ApplyProcessSnapshot(snapshot.Processes);
+            Processes.Apply(snapshot.Processes);
+
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
-                try
-                {
-                    if (_disposed || generation != _samplingGeneration) return;
-                    Disk.Apply(snapshot.Disks);
-                    SystemInfo.ApplyStatic(snapshot.System);
-                    SystemInfo.ApplyProcessSnapshot(snapshot.Processes);
-                    Processes.Apply(snapshot.Processes);
-                    Publish();
-                }
-                catch (Exception ex)
-                {
-                    StatusText = $"显示更新失败：{ex.Message}";
-                }
-                finally
-                {
-                    _isSlowSampling = false;
-                }
-            }))
                 _isSlowSampling = false;
+                if (_disposed || generation != _samplingGeneration)
+                    return;
+
+                Publish();
+            }))
+            {
+                _isSlowSampling = false;
+            }
         }
         catch (Exception ex)
         {
+            _isSlowSampling = false;
             if (!_dispatcherQueue.TryEnqueue(() =>
             {
                 if (!_disposed && generation == _samplingGeneration)
                     StatusText = $"采集失败：{ex.Message}";
-                _isSlowSampling = false;
             }))
-                _isSlowSampling = false;
+            {
+                // 调度队列已关闭（窗口正在关闭），无需再报错。
+            }
         }
     }
 

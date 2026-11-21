@@ -14,6 +14,9 @@ public class DiskViewModel : BaseViewModel
 {
     private readonly DiskService _service = new();
 
+    /// <summary>按驱动器名索引，避免每次采样都做一次线性查找。</summary>
+    private readonly Dictionary<string, DiskItemViewModel> _byName = new(StringComparer.OrdinalIgnoreCase);
+
     public ObservableCollection<DiskItemViewModel> Drives { get; } = new();
 
     private double _totalUsagePercent;
@@ -69,10 +72,23 @@ public class DiskViewModel : BaseViewModel
 
     public void Apply(IReadOnlyList<DiskInfo> disks)
     {
-        foreach (var disk in disks)
+        // 集合只能在 UI 线程修改；后台采样线程交回 UI 线程执行。
+        if (!IsOnUiThread)
         {
-            var existing = Drives.FirstOrDefault(d => d.DriveName == disk.DriveName);
-            if (existing != null)
+            RunOnUiThread(() => Apply(disks));
+            return;
+        }
+
+        var present = new HashSet<string>(disks.Count, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < disks.Count; i++)
+        {
+            var disk = disks[i];
+            if (string.IsNullOrEmpty(disk.DriveName))
+                continue;
+
+            present.Add(disk.DriveName);
+
+            if (_byName.TryGetValue(disk.DriveName, out var existing))
             {
                 existing.Update(disk);
             }
@@ -80,16 +96,19 @@ public class DiskViewModel : BaseViewModel
             {
                 var vm = new DiskItemViewModel();
                 vm.Update(disk);
+                _byName[disk.DriveName] = vm;
                 Drives.Add(vm);
             }
         }
 
-        // 移除已不存在的驱动器
-        var currentNames = disks.Select(d => d.DriveName).ToHashSet();
+        // 移除已不存在的驱动器（从后往前，避免下标位移）。
         for (int i = Drives.Count - 1; i >= 0; i--)
         {
-            if (!currentNames.Contains(Drives[i].DriveName))
-                Drives.RemoveAt(i);
+            if (present.Contains(Drives[i].DriveName))
+                continue;
+
+            _byName.Remove(Drives[i].DriveName);
+            Drives.RemoveAt(i);
         }
 
         RefreshAggregates();
@@ -97,10 +116,19 @@ public class DiskViewModel : BaseViewModel
 
     private void RefreshAggregates()
     {
-        var ready = Drives.Where(d => d.IsReady).ToList();
-        double total = ready.Sum(d => d.TotalSizeGB);
-        double used = ready.Sum(d => d.UsedSpaceGB);
-        double free = ready.Sum(d => d.FreeSpaceGB);
+        double total = 0;
+        double used = 0;
+        double free = 0;
+
+        foreach (var drive in Drives)
+        {
+            if (!drive.IsReady)
+                continue;
+
+            total += drive.TotalSizeGB;
+            used += drive.UsedSpaceGB;
+            free += drive.FreeSpaceGB;
+        }
 
         TotalUsagePercent = total > 0 ? Math.Min(100, used / total * 100) : 0;
         TotalUsageText = total > 0 ? $"{TotalUsagePercent:0.0}" : "—";

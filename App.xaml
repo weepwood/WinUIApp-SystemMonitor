@@ -119,11 +119,16 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="controls:PageHeader">
-                            <Grid ColumnSpacing="16" Padding="{TemplateBinding Padding}">
+                            <Grid x:Name="HeaderGrid" Padding="{TemplateBinding Padding}"
+                                  ColumnSpacing="16" RowSpacing="0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="0" />
+                                </Grid.RowDefinitions>
                                 <StackPanel Spacing="3" VerticalAlignment="Center">
                                     <TextBlock Text="{TemplateBinding Eyebrow}"
                                                FontSize="12" FontWeight="SemiBold"
@@ -136,8 +141,9 @@
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
-                                <ContentPresenter Grid.Column="1"
+                                <ContentPresenter x:Name="HeaderActions" Grid.Column="1"
                                                   Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Right" />
                             </Grid>
@@ -163,12 +169,16 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="{TemplateBinding CornerRadius}"
                                     Padding="{TemplateBinding Padding}">
-                                <Grid ColumnSpacing="14">
+                                <Grid x:Name="SettingsCardLayout" ColumnSpacing="14" RowSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="0" />
+                                    </Grid.RowDefinitions>
                                     <Border Width="36" Height="36" CornerRadius="8"
                                             VerticalAlignment="Center"
                                             Background="{ThemeResource SubtleFillColorSecondaryBrush}">
@@ -184,7 +194,7 @@
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
-                                    <ContentPresenter Grid.Column="2"
+                                    <ContentPresenter x:Name="SettingsCardContent" Grid.Column="2"
                                                       Content="{TemplateBinding Content}"
                                                       ContentTemplate="{TemplateBinding ContentTemplate}"
                                                       VerticalAlignment="Center"
@@ -202,17 +212,21 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="controls:InfoRow">
-                            <Grid ColumnSpacing="16" Padding="{TemplateBinding Padding}">
+                            <Grid x:Name="InfoRowLayout" ColumnSpacing="16" Padding="{TemplateBinding Padding}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="132" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{TemplateBinding Label}"
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock x:Name="InfoRowLabel" Text="{TemplateBinding Label}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            VerticalAlignment="Top" Margin="0,1,0,0"
                                            TextWrapping="Wrap" />
-                                <TextBlock Grid.Column="1"
+                                <TextBlock x:Name="InfoRowValue" Grid.Column="1"
                                            Text="{TemplateBinding Value}"
                                            Style="{StaticResource BodyTextBlockStyle}"
                                            TextWrapping="Wrap"

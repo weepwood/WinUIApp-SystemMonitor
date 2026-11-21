@@ -54,6 +54,9 @@ namespace WinUIApp
             AppWindow.Changed += OnAppWindowChanged;
             Activated += OnFirstActivated;
             Closed += OnWindowClosed;
+
+            // 命令条按窗口宽度收敛：窄窗口下只保留图标按钮，并收起次要信息。
+            RootGrid.SizeChanged += OnRootGridSizeChanged;
         }
 
         public void SetViewModel(MainViewModel viewModel)
@@ -128,6 +131,22 @@ namespace WinUIApp
             {
                 // 自定义标题栏失败时退回系统标题栏，界面仍可正常使用。
             }
+        }
+
+        /// <summary>
+        /// 命令条自适应。宽度判定使用 RootGrid 的实际宽度（已扣除窗口边框），
+        /// 而不是 AdaptiveTrigger 的窗口宽度，因此与用户看到的排版一致：
+        /// 640 px 以下隐藏「刷新间隔」徽标，560 px 以下隐藏暂停按钮的文本标签。
+        /// </summary>
+        private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            double width = e.NewSize.Width;
+            IntervalBadge.Visibility = width < 640 ? Visibility.Collapsed : Visibility.Visible;
+
+            if (ToggleMonitoringLabel is not null)
+                ToggleMonitoringLabel.Visibility = width < 560 ? Visibility.Collapsed : Visibility.Visible;
+
+            CommandActions.Spacing = width < 700 ? 4 : 8;
         }
 
         private void ApplyPreferences(MonitorPreferences preferences)
@@ -246,7 +265,9 @@ namespace WinUIApp
                 // 取不到显示器信息时直接使用保存的尺寸。
             }
 
-            AppWindow.Resize(new SizeInt32(Math.Max(760, width), Math.Max(520, height)));
+            // 最小尺寸下调到 640 × 480：各页面的卡片已改为按内容宽度折行，
+            // 窄窗口下不会再出现横向溢出，小屏或分屏使用时更有用。
+            AppWindow.Resize(new SizeInt32(Math.Max(640, width), Math.Max(480, height)));
         }
 
         private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
@@ -266,7 +287,7 @@ namespace WinUIApp
                 return;
 
             var size = AppWindow.Size;
-            if (size.Width < 700 || size.Height < 480)
+            if (size.Width < 620 || size.Height < 420)
                 return;
 
             _preferences.WindowWidth = size.Width;
@@ -276,6 +297,7 @@ namespace WinUIApp
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
             AppWindow.Changed -= OnAppWindowChanged;
+            RootGrid.SizeChanged -= OnRootGridSizeChanged;
             _viewModel?.Dispose();
             _preferences.Save();
         }

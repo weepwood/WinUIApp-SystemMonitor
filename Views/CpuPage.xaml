@@ -6,9 +6,10 @@
     xmlns:controls="using:WinUIApp.Controls"
     xmlns:vm="using:WinUIApp.ViewModels">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                      HorizontalContentAlignment="Stretch">
-        <StackPanel Padding="24,8,24,32" Spacing="16" MaxWidth="1240" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto"
+                  HorizontalContentAlignment="Stretch">
+        <StackPanel x:Name="ContentPanel" Padding="24,8,24,32" Spacing="16"
+                    MaxWidth="1400" HorizontalAlignment="Stretch">
 
             <controls:PageHeader Style="{StaticResource PageHeaderStyle}" Eyebrow="硬件 · 处理器" Title="CPU" Subtitle="{Binding Cpu.DisplayName}">
                 <controls:PageHeader.Content>
@@ -46,16 +47,12 @@
                                                 Capacity="{Binding Charts.HistoryCapacity}"
                                                 ShowTooltip="{Binding Charts.ShowTooltip}"
                                                 AutomationProperties.Name="处理器使用率趋势图" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <controls:ResponsivePanel MinItemWidth="120" MaxColumns="3" HorizontalSpacing="8"
+                                              VerticalSpacing="8">
                         <controls:StatTile Style="{StaticResource StatTileStyle}" Label="平均值" Value="{Binding Cpu.History.AverageText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="1" Label="峰值" Value="{Binding Cpu.History.PeakText}" />
-                        <controls:StatTile Style="{StaticResource StatTileStyle}" Grid.Column="2" Label="当前频率" Value="{Binding Cpu.ClockSpeedText}" />
-                    </Grid>
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="峰值" Value="{Binding Cpu.History.PeakText}" />
+                        <controls:StatTile Style="{StaticResource StatTileStyle}" Label="当前频率" Value="{Binding Cpu.ClockSpeedText}" />
+                    </controls:ResponsivePanel>
                 </StackPanel>
             </Border>
 
