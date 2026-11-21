@@ -65,6 +65,9 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP 'System Monitor smoke test'
           $install = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=`"$dir`"" -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
+          $diagnosticPath = Join-Path $env:RUNNER_TEMP 'SystemMonitor-startup.log'
+          Remove-Item $diagnosticPath -Force -ErrorAction SilentlyContinue
+          $env:WINUI_STARTUP_LOG = $diagnosticPath
           $app = Start-Process "$dir/WinUIApp.exe" -WorkingDirectory $dir -PassThru
           try {
             $deadline = (Get-Date).AddSeconds(60)
@@ -76,7 +79,8 @@ jobs:
                   Where-Object { $_.ProviderName -in @('Application Error', '.NET Runtime', 'Windows Error Reporting') } |
                   Select-Object -First 4
                 $details = ($events | ForEach-Object { "$($_.ProviderName): $($_.Message -replace '[\r\n]+', ' ')" }) -join ' | '
-                $diagnostic = "Exit code $($app.ExitCode). $details" -replace '[\r\n]+', ' '
+                $managedDetails = if (Test-Path $diagnosticPath) { Get-Content $diagnosticPath -Raw } else { '' }
+                $diagnostic = "Exit code $($app.ExitCode). $managedDetails $details" -replace '[\r\n]+', ' '
                 $description = if ($diagnostic.Length -gt 140) { $diagnostic.Substring(0, 140) } else { $diagnostic }
                 gh api "repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -f state=failure -f context='WinUI release startup diagnostic' -f description="$description" -f target_url="$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | Out-Null
                 throw "Startup failed: $diagnostic"

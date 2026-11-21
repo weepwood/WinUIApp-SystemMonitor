@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Microsoft.UI.Xaml;
 using WinUIApp.ViewModels;
 
@@ -10,6 +12,27 @@ namespace WinUIApp
         public App()
         {
             InitializeComponent();
+
+            string? diagnosticPath = Environment.GetEnvironmentVariable("WINUI_STARTUP_LOG");
+            if (!string.IsNullOrWhiteSpace(diagnosticPath))
+            {
+                AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+                    WriteStartupDiagnostic(diagnosticPath, eventArgs.ExceptionObject?.ToString() ?? "Unhandled exception");
+                UnhandledException += (_, eventArgs) =>
+                    WriteStartupDiagnostic(diagnosticPath, eventArgs.Exception?.ToString() ?? eventArgs.Message);
+            }
+        }
+
+        private static void WriteStartupDiagnostic(string path, string message)
+        {
+            try
+            {
+                File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
+            }
+            catch (Exception)
+            {
+                // Diagnostic logging must never interfere with shutdown.
+            }
         }
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
